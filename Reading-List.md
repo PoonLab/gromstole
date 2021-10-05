@@ -14,6 +14,10 @@ Please expand this list!
   * compiled database of mutations associated with known lineages from https://covidcg.org
   * 
 - Wurtz N, Revol O, Jardot P, Giraud-Gatineau A, Houhamdi L, Soumagnac C, Annessi A, Lacoste A, Colson P, Aherfi S, Scola BL. Monitoring the Circulation of SARS-CoV-2 Variants by Genomic Analysis of Wastewater in Marseille, South-East France. Pathogens. 2021 Aug;10(8):1042.
+  * NGS libraries prepared using Illumina COVIDSeq protocol
+  * single-end sequencing with 36bp read length on NovaSeq 6000
+  * reads mapped to reference genome using CLC genomics software v7.5
+  * compared nonsynonymous mutations to "classifying mutations that match with 30 SARS-CoV-2 variants circulating in France
 - Crits-Christoph A, Kantor RS, Olm MR, Whitney ON, Al-Shayeb B, Lou YC, Flamholz A, Kennedy LC, Greenwald H, Hinkle A, Hetzel J. Genome sequencing of sewage detects regionally prevalent SARS-CoV-2 variants. MBio. 2021 Jan 19;12(1):e02703-20.
   * "Sequencing viral concentrates and RNA extracted from wastewater can identify multiple SARS-CoV-2 genotypes at various abundances konwn to be present in communities, as well as additional genotypic variants not yet observed in local clinical sequencing efforts."
   * Illumina NextSeq (paired 75bp reads)
