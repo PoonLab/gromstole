@@ -22,14 +22,20 @@ Please expand this list!
   * reads mapped to reference genome using CLC genomics software v7.5
   * compared nonsynonymous mutations to "classifying mutations that match with 30 SARS-CoV-2 variants circulating in France
 
+  > Fairly crummy bioinformatics, nothing much of note here
+
 - Crits-Christoph A, Kantor RS, Olm MR, Whitney ON, Al-Shayeb B, Lou YC, Flamholz A, Kennedy LC, Greenwald H, Hinkle A, Hetzel J. Genome sequencing of sewage detects regionally prevalent SARS-CoV-2 variants. MBio. 2021 Jan 19;12(1):e02703-20.
   * "Sequencing viral concentrates and RNA extracted from wastewater can identify multiple SARS-CoV-2 genotypes at various abundances konwn to be present in communities, as well as additional genotypic variants not yet observed in local clinical sequencing efforts."
-  * Illumina NextSeq (paired 75bp reads)
+  * Illumina NextSeq (paired 2x75bp reads), total RNA
+  * cDNA enrichment with Illumina Respiratory Virus Oligo Panel
+  * rRNA depletion with Gut Microbiome probe set
   * mapped with Bowtie2 to all virus genomes in RefSeq
   * removed duplicate reads, only reported genomes with >10% coverage
   * SNV calling with inStrain for read pairs with >90% identity to reference
   * removed PCR duplicates with Sambamba
   * hypergeometric distribution testing
+  
+  > SARS-CoV-2 genomics done by metagenomics people
 
 - [Guidance for surveillance of SARS-CoV-2 variants: Interim guidance, 9 August 2021](https://www.who.int/publications/i/item/WHO_2019-nCoV_surveillance_variants)
 
@@ -55,7 +61,8 @@ Please expand this list!
   * "Detecting multiple signature mutations on the same amplicon increases the confidence of mutation calls at very low variant read counts."
   * only used non-synonymous substitutions for quantification
     * frequencies of B.1.1.7 signature substitutions were resampled with replacement, averaged per wastewater sample, smoothed over time by local regression (lowess, Python statsmodels v0.12.1) to construct bootstrap estimates of B.1.1.7 per-day frequency curves
-    * 
+  
+  > developed COJAC (co-occurrence method), worth investigating - can probably ignore local haplotype reconstruction step (one of the authors is a big advocate of this approach)
 
 # Alignment with uncertainty
 
