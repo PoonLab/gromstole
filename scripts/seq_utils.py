@@ -2,8 +2,18 @@ from datetime import date
 import bisect
 import pkg_resources
 
-from scipy.stats import poisson
-from scipy.optimize import root
+
+complement_dict = {'A':'T', 'C':'G', 'G':'C', 'T':'A',
+                    'W':'S', 'R':'Y', 'K':'M', 'Y':'R', 'S':'W', 'M':'K',
+                    'B':'V', 'D':'H', 'H':'D', 'V':'B',
+                    '*':'*', 'N':'N', '-':'-'}
+
+def revcomp(seq):
+    rseq = seq[::-1]
+    rcseq = ''
+    for i in rseq:  # reverse order
+        rcseq += complement_dict[i]
+    return rcseq
 
 
 def read_seq(handle):
@@ -192,34 +202,6 @@ class QPois:
         if ndiffs > qmax or ndiffs <= qmin:
             return True
         return False
-
-
-def filter_outliers(iter, origin='2019-12-01', rate=0.0655, cutoff=0.005, maxtime=1e3):
-    """
-    Exclude genomes that contain an excessive number of genetic differences
-    from the reference, assuming that the mean number of differences increases
-    linearly over time and that the variation around this mean follows a
-    Poisson distribution.
-
-    :param iter:  generator, returned by encode_diffs()
-    :param origin:  str, date of root sequence in ISO format (yyyy-mm-dd)
-    :param rate:  float, molecular clock rate (subs/genome/day), defaults
-                  to 8e-4 * 29900 / 365
-    :param cutoff:  float, use 1-cutoff to compute quantile of Poisson
-                    distribution, defaults to 0.005
-    :param maxtime:  int, maximum number of days to cache Poisson quantiles
-    :yield:  tuples from generator that pass filter
-    """
-    qp = QPois(quantile=1-cutoff, rate=rate, maxtime=maxtime, origin=origin)
-    for qname, diffs, missing in iter:
-        coldate = qname.split('|')[-1]
-        if coldate.count('-') != 2:
-            continue
-        ndiffs = len(diffs)
-        if qp.is_outlier(coldate, ndiffs):
-            # reject genome with too many differences given date
-            continue
-        yield qname, diffs, missing
 
 
 def load_vcf(vcf_file="data/problematic_sites_sarsCov2.vcf"):
