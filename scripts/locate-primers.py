@@ -12,6 +12,9 @@ reader = csv.DictReader(open('data/nCoV-2019.tsv'), delimiter='\t')
 coords = {}
 for row in reader:
     name = row['name']
+    if 'alt' in name:
+        continue
+
     seq = row['seq']
     right = False
     if 'RIGHT' in name:
@@ -31,7 +34,7 @@ for row in reader:
     coords[pid]['right' if right else 'left']['len'] = len(seq)
 
 outfile = open('data/tile-coords.csv', 'w')
-outfile.write("primer.index,left.rpos,left.len,right.rpox,right.len\n")
+outfile.write("primer.index,left.rpos,left.len,right.rpos,right.len\n")
 for pid, data in coords.items():
     outfile.write("{},{},{},{},{}\n".format(
         pid, data['left']['rpos'], data['left']['len'],
