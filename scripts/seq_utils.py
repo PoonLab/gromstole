@@ -5,6 +5,20 @@ import pkg_resources
 from scipy.stats import poisson
 from scipy.optimize import root
 
+complement_dict = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A',
+                   'W': 'S', 'R': 'Y', 'K': 'M', 'Y': 'R', 'S': 'W', 'M': 'K',
+                   'B': 'V', 'D': 'H', 'H': 'D', 'V': 'B',
+                   '*': '*', 'N': 'N', '-': '-'}
+
+
+def revcomp(seq):
+    """ Reverse-complement input nucleotide sequence """
+    rseq = seq[::-1]
+    rcseq = ''
+    for i in rseq:  # reverse order
+        rcseq += complement_dict[i]
+    return rcseq
+
 
 def read_seq(handle):
     """
