@@ -2,8 +2,19 @@ from datetime import date
 import bisect
 import pkg_resources
 
-from scipy.stats import poisson
-from scipy.optimize import root
+
+complement_dict = {'A':'T', 'C':'G', 'G':'C', 'T':'A',
+                    'W':'S', 'R':'Y', 'K':'M', 'Y':'R', 'S':'W', 'M':'K',
+                    'B':'V', 'D':'H', 'H':'D', 'V':'B',
+                    '*':'*', 'N':'N', '-':'-'}
+
+
+def revcomp(seq):
+    rseq = seq[::-1]
+    rcseq = ''
+    for i in rseq:  # reverse order
+        rcseq += complement_dict[i]
+    return rcseq
 
 complement_dict = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A',
                    'W': 'S', 'R': 'Y', 'K': 'M', 'Y': 'R', 'S': 'W', 'M': 'K',
@@ -139,103 +150,6 @@ def fromisoformat(dt):
     return date(year, month, day)
 
 
-class QPois:
-    """
-    Cache the quantile transition points for Poisson distribution for a given
-    rate <L> and varying time <t>, s.t. \exp(-Lt)\sum_{i=0}^{k} (Lt)^i/i! = Q.
-    """
-    def __init__(self, quantile, rate, maxtime, origin='2019-12-01'):
-        """
-        :param quantile:  float, cut distribution at q and 1-q
-        :param rate:  float, molecular clock rate (genome / day)
-        :param maxtime:  int, maximum number of days to cache
-        :param origin:  str, x-intercept of trend in ISO format
-        """
-        if quantile <= 0 or quantile >= 1:
-            print("ERROR: QPois quantile argument must be on closed interval (0,1).")
-        self.upperq = quantile if quantile > 0.5 else (1-quantile)
-        self.lowerq = 1-self.upperq  # TODO: store timepoints for lower quantiles
-        self.rate = rate
-        self.maxtime = maxtime
-        self.origin = fromisoformat(origin)
-
-        self.timepoints_upper, self.timepoints_lower = self.compute_timepoints()
-
-    def objfunc(self, x, k, q):
-        """ Use root-finding to find transition point for Poisson CDF """
-        return q - poisson.cdf(k=k, mu=self.rate*x)
-
-    def compute_timepoints(self, maxk=100):
-        """ Store transition points until time exceeds maxtime """
-        timepoints_upper = []
-        timepoints_lower = []
-        tu = 0
-        tl = 0
-        for k in range(maxk):
-            res_upper = root(self.objfunc, x0=tu, args=(k, self.upperq, ))
-            res_lower = root(self.objfunc, x0=tl, args=(k, self.lowerq, ))
-            if not res_upper.success:
-                print("Error in QPois: failed to locate root, q={} k={} rate={}".format(
-                    self.upperq, k, self.rate))
-                break
-            if not res_lower.success:
-                print("Error in QPois: failed to locate root, q={} k={} rate={}".format(
-                    self.lowerq, k, self.rate))
-                break
-            tu = res_upper.x[0]
-            tl = res_lower.x[0]
-            if tu > self.maxtime:
-                break
-            timepoints_upper.append(tu)
-            if tl < 0:
-                break
-            if tl <= self.maxtime:
-                timepoints_lower.append(tl)
-        return timepoints_upper, timepoints_lower
-
-    def lookup(self, time, timepoints):
-        """ Retrieve quantile count, given time """
-        return bisect.bisect(timepoints, time)
-
-    def is_outlier(self, coldate, ndiffs):
-        if type(coldate) is str:
-            coldate = fromisoformat(coldate)
-        dt = (coldate - self.origin).days
-        qmax = self.lookup(dt, self.timepoints_upper)
-        qmin = self.lookup(dt, self.timepoints_lower)
-        if ndiffs > qmax or ndiffs <= qmin:
-            return True
-        return False
-
-
-def filter_outliers(iter, origin='2019-12-01', rate=0.0655, cutoff=0.005, maxtime=1e3):
-    """
-    Exclude genomes that contain an excessive number of genetic differences
-    from the reference, assuming that the mean number of differences increases
-    linearly over time and that the variation around this mean follows a
-    Poisson distribution.
-
-    :param iter:  generator, returned by encode_diffs()
-    :param origin:  str, date of root sequence in ISO format (yyyy-mm-dd)
-    :param rate:  float, molecular clock rate (subs/genome/day), defaults
-                  to 8e-4 * 29900 / 365
-    :param cutoff:  float, use 1-cutoff to compute quantile of Poisson
-                    distribution, defaults to 0.005
-    :param maxtime:  int, maximum number of days to cache Poisson quantiles
-    :yield:  tuples from generator that pass filter
-    """
-    qp = QPois(quantile=1-cutoff, rate=rate, maxtime=maxtime, origin=origin)
-    for qname, diffs, missing in iter:
-        coldate = qname.split('|')[-1]
-        if coldate.count('-') != 2:
-            continue
-        ndiffs = len(diffs)
-        if qp.is_outlier(coldate, ndiffs):
-            # reject genome with too many differences given date
-            continue
-        yield qname, diffs, missing
-
-
 def load_vcf(vcf_file="data/problematic_sites_sarsCov2.vcf"):
     """
     Load VCF of problematic sites curated by Nick Goldman lab
@@ -298,97 +212,6 @@ def filter_problematic_sites(obj, mask, callback=None):
     if callback:
         callback('filtered {} problematic features'.format(count))
     return result
-
-
-class SC2Locator:
-    """
-    Annotate features
-    """
-    def __init__(self, ref_file=pkg_resources.resource_filename('covizu', 'data/NC_045512.fa')):
-        self.gcode = {
-            'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
-            'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
-            'TAT': 'Y', 'TAC': 'Y', 'TAA': '*', 'TAG': '*',
-            'TGT': 'C', 'TGC': 'C', 'TGA': '*', 'TGG': 'W',
-            'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
-            'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
-            'CAT': 'H', 'CAC': 'H', 'CAA': 'Q', 'CAG': 'Q',
-            'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R',
-            'ATT': 'I', 'ATC': 'I', 'ATA': 'I', 'ATG': 'M',
-            'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
-            'AAT': 'N', 'AAC': 'N', 'AAA': 'K', 'AAG': 'K',
-            'AGT': 'S', 'AGC': 'S', 'AGA': 'R', 'AGG': 'R',
-            'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
-            'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
-            'GAT': 'D', 'GAC': 'D', 'GAA': 'E', 'GAG': 'E',
-            'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G',
-            '---': '-', 'XXX': '?'
-        }
-        self.orfs = {
-            'orf1a': (265, 13468),
-            'orf1b': (13467, 21555),
-            'S': (21562, 25384),
-            'orf3a': (25392, 26220),
-            'E': (26244, 26472),
-            'M': (26522, 27191),
-            'orf6': (27201, 27387),
-            'orf7a': (27393, 27759),
-            'orf7b': (27755, 27887),
-            'orf8': (27893, 28259),
-            'N': (28273, 29533),
-            'orf10': (29557, 29674)
-        }
-
-        # load reference genome
-        with open(ref_file) as handle:
-            fasta = convert_fasta(handle)
-            self.refseq = fasta[0][1]
-
-    def parse_mutation(self, feat):
-        """
-        Map feature from reference nucleotide coordinate system to amino
-        acid substitutions, if relevant.
-        :param feat:  tuple (str, int, str); type, position and alternate state
-        :return:  str, AA or indel string; or None if synonymous nucleotide substitution
-        """
-        # unpack feature
-        typ, pos, alt = feat
-        if typ == '~':
-            # is substitution within a reading frame?
-            this_orf = None
-            this_left, this_right = None, None
-            for orf, coords in self.orfs.items():
-                left, right = coords
-                if left <= pos < right:
-                    this_orf = orf
-                    this_left, this_right = left, right
-                    break
-
-            # does the mutation change an amino acid?
-            if this_orf:
-                # retrieve codons
-                codon_left = 3 * ((pos-this_left)//3)
-                codon_pos = (pos-this_left) % 3
-
-                rcodon = self.refseq[this_left:this_right][codon_left:(codon_left+3)]
-                ramino = self.gcode[rcodon]
-
-                qcodon = list(rcodon)
-                qcodon[codon_pos] = alt
-                qcodon = ''.join(qcodon)
-                qamino = self.gcode[qcodon]
-
-                if ramino != qamino:
-                    return 'aa:{}:{}{:0.0f}{}'.format(this_orf, ramino, 1+codon_left/3, qamino)
-
-        elif typ == '+':
-            return 'ins:{}:{}'.format(pos+1, len(alt))
-
-        elif typ == '-':
-            return 'del:{}:{}'.format(pos+1, alt)
-
-        # otherwise
-        return None
 
 
 def batch_fasta(gen, size=100):
