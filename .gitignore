@@ -13,6 +13,11 @@ data/tile-coords.csv
 
 # Spreadsheets
 *\.csv
+*\.tsv
 !nCoV-2019.tsv
 
+# Archives
+*\.gz
+*\.xz
+*\.zip
 
