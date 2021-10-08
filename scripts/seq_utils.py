@@ -225,17 +225,14 @@ def batch_fasta(gen, size=100):
     stdin = ''
     batch = []
     for i, record in enumerate(gen, 1):
-        qname = record['label']
-        sequence = record.pop('sequence')
+        qname, sequence = record
         stdin += '>{}\n{}\n'.format(qname, sequence)
-        batch.append(record)
         if i > 0 and i % size == 0:
-            yield stdin, batch
+            yield stdin
             stdin = ''
-            batch = []
 
-    if batch:
-        yield stdin, batch
+    if stdin:
+        yield stdin
 
 
 def filter_problematic(records, origin='2019-12-01', rate=0.0655, cutoff=0.005,
