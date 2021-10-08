@@ -1,0 +1,23 @@
+# Auxillary Files
+*__pycache__*
+.DS_Store
+
+# Output Files
+data/tile-coords.csv
+
+# Fasta
+*\.fa
+*\.fasta
+# Include the reference
+!data/NC_045512.fa
+
+# Spreadsheets
+*\.csv
+*\.tsv
+!nCoV-2019.tsv
+
+# Archives
+*\.gz
+*\.xz
+*\.zip
+
