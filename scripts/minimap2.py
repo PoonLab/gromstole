@@ -102,7 +102,7 @@ def minimap2_paired(fq1, fq2, ref, path='minimap2', nthread=3):
     :return:
     """
     p = subprocess.Popen(
-        [path, '-t', str(nthread), '-ax', 'sr', '--eqx', ref, fq1, fq2],
+        [path, '-t', str(nthread), '-ax', 'sr', '--eqx', '--secondary=no', ref, fq1, fq2],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
     )
     output = map(lambda x: x.decode('utf-8'), p.stdout)
