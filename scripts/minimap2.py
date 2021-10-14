@@ -9,7 +9,7 @@ import sys
 import os
 import json
 
-from seq_utils import convert_fasta, filter_problematic_sites
+from seq_utils import convert_fasta, SC2Locator
 
 
 def apply_cigar(seq, rpos, cigar):
@@ -93,13 +93,13 @@ def minimap2(infile, ref, stream=False, path='minimap2', nthread=3, minlen=29000
 
 def minimap2_paired(fq1, fq2, ref, path='minimap2', nthread=3):
     """
-
+    Wrapper for minimap2 for processing paired-end read data.
     :param fq1:  str, path to FASTQ R1 file (uncompressed or gzipped)
     :param fq2:  str, path to FASTQ R2 file (uncompressed or gzipped)
     :param ref:  str, path to FASTA file with reference sequence
     :param path:  str, path to minimap2 binary executable
     :param nthread:  int, number of threads to run
-    :return:
+    :yield:  tuple (qname, rpos, cigar, seq)
     """
     p = subprocess.Popen(
         [path, '-t', str(nthread), '-ax', 'sr', '--eqx', '--secondary=no', ref, fq1, fq2],
@@ -127,6 +127,7 @@ def matchmaker(samfile):
     An iterator that returns pairs of reads sharing a common qname from a SAM file.
     Note that unpaired reads will be left in the cached_rows dictionary and
     discarded.
+    FIXME: it would probably be simpler to just pair up rows after headers
     @param samfile: open file handle to a SAM file
     @return: yields a tuple for each read pair with fields split by tab chars:
         ([qname, flag, rname, ...], [qname, flag, rname, ...])
@@ -333,12 +334,18 @@ if __name__ == '__main__':
     if args.outfile is None:
         args.outfile = sys.stdout
 
+    locator = SC2Locator(ref_file='data/NC_045512.fa')
     mm2 = minimap2_paired(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
+    count = 0
     for pairs in matchmaker(mm2):
         for qname, rpos, cigar, seq in pairs:
-            diffs = encode_diffs(qname, rpos, cigar, seq)
-            print(diffs)
-        break
+            _, diffs, missing = encode_diffs(qname, rpos, cigar, seq)
+            # get indel or AA sub notations
+            mutations = [locator.parse_mutation(d) for d in diffs]
+
+        count += 1
+        if count > 10:
+            break
 
     sys.exit()
 
