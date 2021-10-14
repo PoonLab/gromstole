@@ -8,16 +8,19 @@ data/tile-coords.csv
 # Fasta
 *\.fa
 *\.fasta
+*\.fastq
 # Include the reference
 !data/NC_045512.fa
 
 # Spreadsheets
 *\.csv
 *\.tsv
-!nCoV-2019.tsv
+!data/nCoV-2019.tsv
 
 # Archives
 *\.gz
 *\.xz
 *\.zip
 
+# Saved dictionaries
+*\.json
