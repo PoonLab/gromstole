@@ -204,16 +204,17 @@ def stream_fasta(iter, reflen=0):
         yield qname, aligned
 
 
-def encode_diffs(qname, rpos, cigar, seq, reflen=29903, alphabet='ACGT'):
+def encode_diffs(row, reflen=29903, alphabet='ACGT'):
     """
     Serialize differences of query sequences to reference
     genome, which comprise nucleotide substitutions, in-frame
     indels, and locations of missing data.
     NOTE: runs of 'N's are also represented by 'X' tokens in the CIGAR
     string.
-    :param iter:  generator from minimap2()
+    :param row:  tuple from minimap2(), i.e., (qname, rpos, cigar, seq)
     :param reflen:  length of reference genome
     """
+    qname, rpos, cigar, seq = row  # unpack tuple
     diffs = []
     missing = []
     if rpos > 0:
@@ -289,7 +290,7 @@ def extract_features(batcher, ref_file, binpath='minimap2', nthread=3, minlen=29
     for fasta, batch in batcher:
         mm2 = minimap2(fasta, ref_file, stream=True, path=binpath, nthread=nthread,
                        minlen=minlen)
-        result = list(encode_diffs(mm2, reflen=reflen))
+        result = [encode_diffs(row, reflen=reflen) for row in mm2]
         for row, record in zip(result, batch):
             # reconcile minimap2 output with GISAID record
             qname, diffs, missing = row
@@ -337,12 +338,14 @@ if __name__ == '__main__':
     locator = SC2Locator(ref_file='data/NC_045512.fa')
     mm2 = minimap2_paired(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
     count = 0
-    for pairs in matchmaker(mm2):
-        for qname, rpos, cigar, seq in pairs:
-            _, diffs, missing = encode_diffs(qname, rpos, cigar, seq)
-            # get indel or AA sub notations
-            mutations = [locator.parse_mutation(d) for d in diffs]
+    for r1, r2 in matchmaker(mm2):
+        _, diff1, miss1 = encode_diffs(r1)
+        _, diff2, miss2 = encode_diffs(r2)
 
+        # get indel or AA sub notations
+        mut1 = [locator.parse_mutation(d) for d in diff1]
+        mut2 = [locator.parse_mutation(d) for d in diff2]
+        print(mut1, mut2)
         count += 1
         if count > 10:
             break
