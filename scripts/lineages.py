@@ -34,9 +34,7 @@ ref_file = "data/NC_045512.fa"
 batcher = batch_fasta(filter(lambda x: x[0] in lineages, iter_fasta(handle)), size=100)
 for fasta in batcher:
     mm2 = minimap2.minimap2(fasta, ref=ref_file, stream=True, nthread=1, minlen=29000)
-    for qname, diffs, missing in minimap2.encode_diffs(mm2, reflen=29903):
-        print (qname)
-        print (diffs)
-        print (missing)
+    for qname, diffs, missing in [minimap2.encode_diffs(row) for row in mm2]:
+        print(qname, diffs, missing)
         break
     break
