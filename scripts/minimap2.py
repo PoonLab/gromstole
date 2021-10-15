@@ -372,6 +372,7 @@ if __name__ == '__main__':
     locator = SC2Locator(ref_file='data/NC_045512.fa')
     mm2 = minimap2_paired(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
     count = 0
+    res = []
     for r1, r2 in matchmaker(mm2):
         qname, diff1, miss1 = encode_diffs(r1)
         _, diff2, miss2 = encode_diffs(r2)
@@ -386,32 +387,11 @@ if __name__ == '__main__':
         # get indel or AA sub notations
         mut = [locator.parse_mutation(d) for d in diffs]
         print(mut)
+        res.append({"qname": qname, "diff": diffs, "mutations": mut, "coverage": coverage})
         count += 1
         if count > 20:
             break
 
-    sys.exit()
-
-    # get length of reference
-    refseq = convert_fasta(open(args.ref))[0][1]
-    reflen = len(refseq)
-    """
-        if args.align:
-        if args.filter:
-            vcf = load_vcf(args.vcf)
-            encoded = encode_diffs(mm2, reflen=reflen)
-            for qname, diffs, missing in filter_problematic_sites(encoded, mask=vcf):
-                seq = apply_features(diffs, missing, refseq=refseq)
-                args.outfile.write(">{}\n{}\n".format(qname, seq))
-        else:
-            output_fasta(mm2, reflen=reflen, outfile=args.outfile)
-    """
-
-    # serialize feature vectors as JSON
-    res = []
-    for row in mm2:
-        qname, diffs, missing = encode_diffs(row)
-        res.append({'name': qname, 'diffs': diffs, 'missing': missing})
     serial = json.dumps(res).replace('},', '},\n')
     args.outfile.write(serial)
 
