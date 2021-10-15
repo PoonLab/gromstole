@@ -379,14 +379,9 @@ if __name__ == '__main__':
         
         diffs, coverage = merge_diffs(diff1 = diff1, diff2 = diff2, 
             miss1 = miss1, miss2 = miss2)
-        print("\n")
-        print(qname)
-        print(diffs)
-        print(coverage)
 
         # get indel or AA sub notations
         mut = [locator.parse_mutation(d) for d in diffs]
-        print(mut)
         res.append({"qname": qname, "diff": diffs, "mutations": mut, "coverage": coverage})
         count += 1
         if count > 20:
