@@ -297,6 +297,40 @@ def extract_features(batcher, ref_file, binpath='minimap2', nthread=3, minlen=29
             record.update({'diffs': diffs, 'missing': missing})
             yield record
 
+def merge_diffs(diff1, diff2, miss1, miss2):
+    """
+    Merge the differences from reference for paired reads (including coverage).
+
+    If diff is on the overlap of coverage, the diff must appear in both.
+    If diff exists where only one read has coverage, always accept.
+    If diff is only in one read and both have coverage, reject.
+    """
+    lo1 = miss1[0][1] # miss1 is [(0, lo1), (hi1, 29903)]
+    hi1 = miss1[1][0]
+    lo2 = miss2[0][1]
+    hi2 = miss2[1][0]
+    if miss1 == miss2: 
+        # same coverage: only return duplicates
+        same_diffs = [value for value in diff1 if value in diff2]
+        return same_diffs, [(lo1, hi1)]
+    elif lo1 > hi2 or lo2 > hi1:
+        # non-overlapping, return all mutations
+        all_diffs = list(set(diff1 + diff2))
+        return all_diffs, [(lo1, hi1), (lo2, hi2)]
+    else: 
+        # imperfect overlap
+        cov_union = (min([lo1, lo2]), max([hi1, hi2]))
+        cov_intersect = (max([lo1, lo2]), min([hi1, hi2]))
+
+        all_diffs = list(set(diff1 + diff2))
+        return_diffs = [value for value in diff1 if value in diff2]
+        diff_diffs = [value for value in all_diffs if value not in return_diffs]
+
+        diff_loc = [value for value in map(lambda x: x[1], diff_diffs)]
+        for i in range(len(diff_diffs)):
+            if cov_union[0] <= diff_loc[i] <= cov_union[1] and not cov_intersect[0] <= diff_loc[i] <= cov_intersect[1]:
+                return_diffs.append(diff_diffs[i])
+        return return_diffs, cov_union
 
 def parse_args():
     parser = argparse.ArgumentParser("Wrapper script for minimap2")
@@ -339,15 +373,21 @@ if __name__ == '__main__':
     mm2 = minimap2_paired(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
     count = 0
     for r1, r2 in matchmaker(mm2):
-        _, diff1, miss1 = encode_diffs(r1)
+        qname, diff1, miss1 = encode_diffs(r1)
         _, diff2, miss2 = encode_diffs(r2)
+        
+        diffs, coverage = merge_diffs(diff1 = diff1, diff2 = diff2, 
+            miss1 = miss1, miss2 = miss2)
+        print("\n")
+        print(qname)
+        print(diffs)
+        print(coverage)
 
         # get indel or AA sub notations
-        mut1 = [locator.parse_mutation(d) for d in diff1]
-        mut2 = [locator.parse_mutation(d) for d in diff2]
-        print(mut1, mut2)
+        mut = [locator.parse_mutation(d) for d in diffs]
+        print(mut)
         count += 1
-        if count > 10:
+        if count > 20:
             break
 
     sys.exit()
