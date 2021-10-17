@@ -378,26 +378,37 @@ def parse_mm2(mm2, report=10000, stop=1e6):
 
 
 def get_coverage(res, maxpos=29903):
+    """
+    FIXME:  this is time consuming!  Is there a better way?
+    :param res:
+    :param maxpos:
+    :return:
+    """
     counts = dict([(pos, 0) for pos in range(maxpos)])
     for row in res:
         cov = row['coverage']
         if len(cov) == 2 and type(cov[0]) is not tuple:
             cov = [cov]
-
-        try:
-            for left, right in cov:
-                for pos in range(left, right):
-                    counts[pos] += 1
-        except TypeError:
-            print(row)
-            raise
+        for left, right in cov:
+            for pos in range(left, right):
+                counts[pos] += 1
     return counts
 
 
-def get_frequencies(res):
+def get_frequencies(res, coverage):
+    counts = {}
     for row in res:
-        for diff in row['diffs']:
-            pass  # work in progress
+        for i, diff in enumerate(row['diff']):
+            typ, pos, mut = diff
+            label = row['mutations'][i]
+            denom = coverage[pos]
+            key = ''.join(map(str, [typ, pos, mut]))
+            if pos not in counts:
+                counts.update({pos: {}})
+            if key not in counts[pos]:
+                counts[pos].update({key: {'label': label, 'count': 0}})
+            counts[pos][key]['count'] += 1/denom
+    return counts
 
 
 def parse_args():
@@ -441,7 +452,13 @@ if __name__ == '__main__':
     mm2 = minimap2_paired(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
     res = parse_mm2(mm2, stop=1e6)
     coverage = get_coverage(res)
+    counts = get_frequencies(res, coverage)
 
     #serial = json.dumps(res).replace('},', '},\n')
     #args.outfile.write(serial)
 
+    args.outfile.write("mutation,frequency,coverage\n")
+    for pos, mutations in counts.items():
+        denom = coverage[pos]
+        for mut, freq in mutations.items():
+            args.outfile.write('{},{},{},{}\n'.format(mut, freq['label'], freq['count'], denom))
