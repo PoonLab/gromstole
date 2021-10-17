@@ -12,85 +12,6 @@ import json
 from seq_utils import convert_fasta, SC2Locator
 
 
-def apply_cigar(seq, rpos, cigar):
-    """
-    Use CIGAR to pad sequence with gaps as required to
-    align to reference.  Adapted from http://github.com/cfe-lab/MiCall
-    """
-    is_valid = re.match(r'^((\d+)([MIDNSHPX=]))*$', cigar)
-
-    if not is_valid:
-        raise RuntimeError('Invalid CIGAR string: {!r}.'.format(cigar))
-    tokens = re.findall(r'  (\d+)([MIDNSHPX=])', cigar, re.VERBOSE)
-    aligned = '-'*rpos
-    left = 0
-    for length, operation in tokens:
-        length = int(length)
-        if operation in 'M=X':
-            aligned += seq[left:(left+length)]
-            left += length
-        elif operation == 'D':
-            aligned += '-'*length
-        elif operation in 'SI':
-            left += length  # soft clip
-
-    return aligned
-
-
-def minimap2(infile, ref, stream=False, path='minimap2', nthread=3, minlen=29000):
-    """
-    Wrapper function for minimap2.
-
-    :param infile:  file object or StringIO
-    :param ref:  str, path to FASTA with reference sequence(s)
-    :param stream:  bool, if True then stream data from <infile> object via stdin
-    :param path:  str, path to binary executable
-    :param nthread:  int, number of threads for parallel execution of minimap2
-    :param minlen:  int, filter genomes below minimum length; to accept all, set to 0.
-
-    :yield:  query sequence name, reference index, CIGAR and original
-             sequence
-    """
-    if stream:
-        # input from StringIO in memory
-        p = subprocess.Popen(
-            [path, '-t', str(nthread), '-a', '--eqx', ref, '-'], encoding='utf8',
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-        )
-        output, outerr = p.communicate(infile)
-        output = output.split('\n')
-    else:
-        # input read from file
-        p = subprocess.Popen(
-            [path, '-t', str(nthread), '-a', '--eqx', ref, infile.name],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-        )
-        output = map(lambda x: x.decode('utf-8'), p.stdout)
-
-    for line in output:
-        if line == '' or line.startswith('@'):
-            # split on \n leaves empty line; @ prefix header lines
-            continue
-        qname, flag, rname, rpos, _, cigar, _, _, _, seq = \
-            line.strip('\n').split('\t')[:10]
-
-        if rname == '*' or ((int(flag) & 0x800) != 0):
-            # did not map, or supplementary alignment
-            continue
-
-        if len(seq) < minlen:
-            # reject sequence that is too short
-            continue
-
-        # validate CIGAR string
-        is_valid = re.match(r'^((\d+)([MIDNSHPX=]))*$', cigar)
-        if not is_valid:
-            raise RuntimeError('Invalid CIGAR string: {!r}.'.format(cigar))
-
-        rpos = int(rpos) - 1  # convert to 0-index
-        yield qname, rpos, cigar, seq
-
-
 def minimap2_paired(fq1, fq2, ref, path='minimap2', nthread=3):
     """
     Wrapper for minimap2 for processing paired-end read data.
@@ -111,15 +32,15 @@ def minimap2_paired(fq1, fq2, ref, path='minimap2', nthread=3):
             # split on \n leaves empty line; @ prefix header lines
             continue
 
-        qname, flag, rname, rpos, _, cigar, _, _, _, seq = \
-            line.strip('\n').split('\t')[:10]
+        qname, flag, rname, rpos, _, cigar, _, _, _, seq, qual = \
+            line.strip('\n').split('\t')[:11]
 
         if rname == '*' or ((int(flag) & 0x800) != 0):
             # did not map, or supplementary alignment
             continue
 
         rpos = int(rpos) - 1  # convert to 0-index
-        yield qname, rpos, cigar, seq
+        yield qname, rpos, cigar, seq, qual
 
 
 def matchmaker(samfile):
@@ -143,78 +64,19 @@ def matchmaker(samfile):
             yield old_row, row
 
 
-# return aligned sequence?
-def output_fasta(iter, outfile, reflen=0):
-    """
-    Stream output from minimap2 into FASTA file
-    of aligned sequences.  CIGAR parsing code adapted from
-    http://github.com/cfe-lab/MiCall
-
-    :param iter:  generator from minimap2()
-    :param outfile:  open file stream in write mode
-    :param reflen:  int, length of reference genome to pad sequences;
-                    defaults to no padding.
-    """
-    for qname, rpos, cigar, seq in iter:
-        tokens = re.findall(r'  (\d+)([MIDNSHPX=])', cigar, re.VERBOSE)
-        aligned = '-' * rpos
-        left = 0
-        for length, operation in tokens:
-            length = int(length)
-            if operation in 'M=X':
-                aligned += seq[left:(left + length)]
-                left += length
-            elif operation == 'D':
-                aligned += '-' * length
-            elif operation in 'SI':
-                left += length  # soft clip
-
-        # pad on right
-        aligned += '-'*(reflen-len(aligned))
-        outfile.write('>{}\n{}\n'.format(qname, aligned))
-
-
-def stream_fasta(iter, reflen=0):
-    """
-    Stream output from minimap2 into list of tuples [(header, seq), ... , (header, seq)]
-    of aligned sequences.  CIGAR parsing code adapted from
-    http://github.com/cfe-lab/MiCall
-
-    :param iter:  generator from minimap2()
-    :param reflen:  int, length of reference genome to pad sequences;
-                    defaults to no padding.
-    :yield:  tuple, header and aligned sequence
-    """
-    for qname, rpos, cigar, seq in iter:
-        tokens = re.findall(r'  (\d+)([MIDNSHPX=])', cigar, re.VERBOSE)
-        aligned = '-' * rpos
-        left = 0
-        for length, operation in tokens:
-            length = int(length)
-            if operation in 'M=X':
-                aligned += seq[left:(left + length)]
-                left += length
-            elif operation == 'D':
-                aligned += '-' * length
-            elif operation in 'SI':
-                left += length  # soft clip
-
-        # pad on right
-        aligned += '-'*(reflen-len(aligned))
-        yield qname, aligned
-
-
-def encode_diffs(row, reflen=29903, alphabet='ACGT'):
+def encode_diffs(row, reflen=29903, alphabet='ACGT', minq=10):
     """
     Serialize differences of query sequences to reference
     genome, which comprise nucleotide substitutions, in-frame
     indels, and locations of missing data.
     NOTE: runs of 'N's are also represented by 'X' tokens in the CIGAR
     string.
-    :param row:  tuple from minimap2(), i.e., (qname, rpos, cigar, seq)
-    :param reflen:  length of reference genome
+    :param row:  tuple, from minimap2(), i.e., (qname, rpos, cigar, seq)
+    :param reflen:  int, length of reference genome
+    :param alphabet:  str, accepted character states (nucleotides)
+    :param minq:  int, minimum base quality
     """
-    qname, rpos, cigar, seq = row  # unpack tuple
+    qname, rpos, cigar, seq, qual = row  # unpack tuple
     diffs = []
     missing = []
     if rpos > 0:
@@ -226,40 +88,48 @@ def encode_diffs(row, reflen=29903, alphabet='ACGT'):
     for length, operator in tokens:
         length = int(length)
         substr = seq[left:(left + length)]
+        subqual = qual[left:(left + length)]
+
         if operator == 'X':
-            # each nucleotide is a separate diff
+            # base mismatches
             if 'N' in substr:
                 # for now, assume the whole substring is bs
                 missing.append(tuple([rpos, rpos+length]))
             else:
                 # assume adjacent mismatches are independent substitutions
                 for i, nt in enumerate(substr):
-                    if nt in alphabet:
+                    q = subqual[i]
+                    if nt in alphabet and q >= minq:
                         diffs.append(tuple(['~', rpos + i, nt]))
                     else:
                         # skip ambiguous base calls, like "R"
                         missing.append(tuple([rpos+i, rpos+i+1]))
-
             left += length
             rpos += length
+
         elif operator == 'S':
             # discard soft clip
             left += length
+
         elif operator == 'I':
             # insertion relative to reference
             diffs.append(tuple(['+', rpos, substr]))
             left += length
+
         elif operator == 'D':
             # deletion relative to reference
             diffs.append(tuple(['-', rpos, length]))
             rpos += length
+
         elif operator == '=':
             # exact match
             left += length
             rpos += length
+
         elif operator == 'H':
             # hard clip, do nothing
             pass
+
         else:
             print("ERROR: unexpected operator {}".format(operator))
             sys.exit()
@@ -271,34 +141,8 @@ def encode_diffs(row, reflen=29903, alphabet='ACGT'):
     return qname, diffs, missing
 
 
-def extract_features(batcher, ref_file, binpath='minimap2', nthread=3, minlen=29000):
-    """
-    Stream output from JSON.xz file via load_gisaid() into minimap2
-    via subprocess.
-
-    :param batcher:  generator, returned by batch_fasta()
-    :param ref_file:  str, path to reference genome (FASTA format)
-    :param binpath:  str, path to minimap2 binary executable
-    :param nthread:  int, number of threads to run minimap2
-    :param minlen:  int, minimum genome length
-
-    :yield:  dict, record augmented with genetic differences and missing sites;
-    """
-    with open(ref_file) as handle:
-        reflen = len(convert_fasta(handle)[0][1])
-
-    for fasta, batch in batcher:
-        mm2 = minimap2(fasta, ref_file, stream=True, path=binpath, nthread=nthread,
-                       minlen=minlen)
-        result = [encode_diffs(row, reflen=reflen) for row in mm2]
-        for row, record in zip(result, batch):
-            # reconcile minimap2 output with GISAID record
-            qname, diffs, missing = row
-            record.update({'diffs': diffs, 'missing': missing})
-            yield record
-
-
 def check_miss(miss):
+    """ Restore missing lower or upper bounds for missing ranges """
     if len(miss) < 2:
         if miss[0][0] == 0:
             # missing right bound
@@ -323,14 +167,10 @@ def merge_diffs(diff1, diff2, miss1, miss2):
     miss1 = check_miss(miss1)
     miss2 = check_miss(miss2)
 
-    try:
-        lo1 = miss1[0][1]  # miss1 is [(0, lo1), (hi1, 29903)]
-        hi1 = miss1[1][0]
-        lo2 = miss2[0][1]
-        hi2 = miss2[1][0]
-    except IndexError:
-        print(miss1, miss2)
-        raise
+    lo1 = miss1[0][1]  # miss1 is [(0, lo1), (hi1, 29903)]
+    hi1 = miss1[1][0]
+    lo2 = miss2[0][1]
+    hi2 = miss2[1][0]
 
     if miss1 == miss2: 
         # same coverage: only return duplicates
@@ -356,43 +196,44 @@ def merge_diffs(diff1, diff2, miss1, miss2):
         return return_diffs, cov_union
 
 
-def parse_mm2(mm2, report=10000, stop=1e6):
+def parse_mm2(mm2, locator, report=10000, stop=1e6, maxpos=29903):
+    """
+    Iterate over minimap2 output
+    :param mm2:  generator, yields tuples of SAM output from minimap2
+    :param locator:  SC2locator object, maps mutations to nicer notation
+    :param report:  int, console reporting frequency
+    :param stop:  int, limit to number of paired reads that mapped to sc2 to report
+    :return:
+    """
     count = 0
+    total_coverage = dict([(pos, 0) for pos in range(maxpos)])
     res = []
+
     for r1, r2 in matchmaker(mm2):
         _, diff1, miss1 = encode_diffs(r1)
         _, diff2, miss2 = encode_diffs(r2)
 
         diffs, coverage = merge_diffs(diff1, diff2, miss1, miss2)
 
+        # update coverage stats
+        if len(coverage) == 2 and type(coverage[0]) is not tuple:
+            coverage = [coverage]  # FIXME: this is a patch!
+        for left, right in coverage:
+            for pos in range(left, right):
+                total_coverage[pos] += 1
+
         # get indel or AA sub notations
         mut = [locator.parse_mutation(d) for d in diffs]
-        res.append({"diff": diffs, "mutations": mut, "coverage": coverage})
+        res.append({"diff": diffs, "mutations": mut})
+
         count += 1
         if count % report == 0:
             sys.stderr.write('{}\n'.format(count))
             sys.stderr.flush()
         if count > stop:
             break
-    return res
 
-
-def get_coverage(res, maxpos=29903):
-    """
-    FIXME:  this is time consuming!  Is there a better way?
-    :param res:
-    :param maxpos:
-    :return:
-    """
-    counts = dict([(pos, 0) for pos in range(maxpos)])
-    for row in res:
-        cov = row['coverage']
-        if len(cov) == 2 and type(cov[0]) is not tuple:
-            cov = [cov]
-        for left, right in cov:
-            for pos in range(left, right):
-                counts[pos] += 1
-    return counts
+    return res, total_coverage
 
 
 def get_frequencies(res, coverage):
@@ -448,14 +289,13 @@ if __name__ == '__main__':
     if args.outfile is None:
         args.outfile = sys.stdout
 
-    locator = SC2Locator(ref_file='data/NC_045512.fa')
     mm2 = minimap2_paired(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
-    res = parse_mm2(mm2, stop=1e6)
-    coverage = get_coverage(res)
+    locator = SC2Locator(ref_file='data/NC_045512.fa')
+    res, coverage = parse_mm2(mm2, locator, stop=1e3)
     counts = get_frequencies(res, coverage)
 
-    #serial = json.dumps(res).replace('},', '},\n')
-    #args.outfile.write(serial)
+    # serial = json.dumps(res).replace('},', '},\n')
+    # args.outfile.write(serial)
 
     args.outfile.write("mutation,frequency,coverage\n")
     for pos, mutations in counts.items():
