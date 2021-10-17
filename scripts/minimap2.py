@@ -297,6 +297,21 @@ def extract_features(batcher, ref_file, binpath='minimap2', nthread=3, minlen=29
             record.update({'diffs': diffs, 'missing': missing})
             yield record
 
+
+def check_miss(miss):
+    if len(miss) < 2:
+        if miss[0][0] == 0:
+            # missing right bound
+            miss.append(tuple([29903, 29903]))
+        elif miss[0][1] == 29903:
+            # missing left bound
+            miss.insert(0, tuple([0, 0]))
+        else:
+            print("Unexpected case in check_miss(): {}".format(miss))
+            sys.exit()
+    return miss
+
+
 def merge_diffs(diff1, diff2, miss1, miss2):
     """
     Merge the differences from reference for paired reads (including coverage).
@@ -305,10 +320,18 @@ def merge_diffs(diff1, diff2, miss1, miss2):
     If diff exists where only one read has coverage, always accept.
     If diff is only in one read and both have coverage, reject.
     """
-    lo1 = miss1[0][1] # miss1 is [(0, lo1), (hi1, 29903)]
-    hi1 = miss1[1][0]
-    lo2 = miss2[0][1]
-    hi2 = miss2[1][0]
+    miss1 = check_miss(miss1)
+    miss2 = check_miss(miss2)
+
+    try:
+        lo1 = miss1[0][1]  # miss1 is [(0, lo1), (hi1, 29903)]
+        hi1 = miss1[1][0]
+        lo2 = miss2[0][1]
+        hi2 = miss2[1][0]
+    except IndexError:
+        print(miss1, miss2)
+        raise
+
     if miss1 == miss2: 
         # same coverage: only return duplicates
         same_diffs = [value for value in diff1 if value in diff2]
@@ -331,6 +354,51 @@ def merge_diffs(diff1, diff2, miss1, miss2):
             if cov_union[0] <= diff_loc[i] <= cov_union[1] and not cov_intersect[0] <= diff_loc[i] <= cov_intersect[1]:
                 return_diffs.append(diff_diffs[i])
         return return_diffs, cov_union
+
+
+def parse_mm2(mm2, report=10000, stop=1e6):
+    count = 0
+    res = []
+    for r1, r2 in matchmaker(mm2):
+        _, diff1, miss1 = encode_diffs(r1)
+        _, diff2, miss2 = encode_diffs(r2)
+
+        diffs, coverage = merge_diffs(diff1, diff2, miss1, miss2)
+
+        # get indel or AA sub notations
+        mut = [locator.parse_mutation(d) for d in diffs]
+        res.append({"diff": diffs, "mutations": mut, "coverage": coverage})
+        count += 1
+        if count % report == 0:
+            sys.stderr.write('{}\n'.format(count))
+            sys.stderr.flush()
+        if count > stop:
+            break
+    return res
+
+
+def get_coverage(res, maxpos=29903):
+    counts = dict([(pos, 0) for pos in range(maxpos)])
+    for row in res:
+        cov = row['coverage']
+        if len(cov) == 2 and type(cov[0]) is not tuple:
+            cov = [cov]
+
+        try:
+            for left, right in cov:
+                for pos in range(left, right):
+                    counts[pos] += 1
+        except TypeError:
+            print(row)
+            raise
+    return counts
+
+
+def get_frequencies(res):
+    for row in res:
+        for diff in row['diffs']:
+            pass  # work in progress
+
 
 def parse_args():
     parser = argparse.ArgumentParser("Wrapper script for minimap2")
@@ -371,22 +439,9 @@ if __name__ == '__main__':
 
     locator = SC2Locator(ref_file='data/NC_045512.fa')
     mm2 = minimap2_paired(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
-    count = 0
-    res = []
-    for r1, r2 in matchmaker(mm2):
-        qname, diff1, miss1 = encode_diffs(r1)
-        _, diff2, miss2 = encode_diffs(r2)
-        
-        diffs, coverage = merge_diffs(diff1 = diff1, diff2 = diff2, 
-            miss1 = miss1, miss2 = miss2)
+    res = parse_mm2(mm2, stop=1e6)
+    coverage = get_coverage(res)
 
-        # get indel or AA sub notations
-        mut = [locator.parse_mutation(d) for d in diffs]
-        res.append({"qname": qname, "diff": diffs, "mutations": mut, "coverage": coverage})
-        count += 1
-        if count > 20:
-            break
-
-    serial = json.dumps(res).replace('},', '},\n')
-    args.outfile.write(serial)
+    #serial = json.dumps(res).replace('},', '},\n')
+    #args.outfile.write(serial)
 
