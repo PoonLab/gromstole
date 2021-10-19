@@ -9,30 +9,39 @@ import sys
 import os
 import json
 
-from seq_utils import convert_fasta, SC2Locator
+from seq_utils import SC2Locator
 
 
-def minimap2_paired(fq1, fq2, ref, path='minimap2', nthread=3, report=1e5):
+def minimap2(fq1, fq2, ref, path='minimap2', nthread=3, report=1e5):
     """
     Wrapper for minimap2 for processing paired-end read data.
     :param fq1:  str, path to FASTQ R1 file (uncompressed or gzipped)
-    :param fq2:  str, path to FASTQ R2 file (uncompressed or gzipped)
+    :param fq2:  str, path to FASTQ R2 file (uncompressed or gzipped); if None,
+                 treat fq1 as an unpaired (single) FASTQ
     :param ref:  str, path to FASTA file with reference sequence
     :param path:  str, path to minimap2 binary executable
     :param nthread:  int, number of threads to run
     :param report:  int, reporting frequency (to stderr)
     :yield:  tuple (qname, rpos, cigar, seq)
     """
-    p = subprocess.Popen(
-        [path, '-t', str(nthread), '-ax', 'sr', '--eqx', '--secondary=no', ref, fq1, fq2],
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-    )
+    if fq2 is None:
+        # assume we are working with Oxford Nanopore (ONT)
+        p = subprocess.Popen(
+            [path, '-t', str(nthread), '-ax', 'map-ont', '--eqx', '--secondary=no', ref, fq1],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+        )
+    else:
+        # assume we are working with paired-end Illumina
+        p = subprocess.Popen(
+            [path, '-t', str(nthread), '-ax', 'sr', '--eqx', '--secondary=no', ref, fq1, fq2],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+        )
     bad = 0
     output = map(lambda x: x.decode('utf-8'), p.stdout)
     for ln, line in enumerate(output):
         if ln % report == 0 and ln > 0:
             sys.stderr.write("{} reads, {} ({}%) mapped\n".format(
-                ln/2, (ln-bad)/2, round((ln-bad)/ln*100)))
+                ln/(2 if fq2 else 1), (ln-bad)/(2 if fq2 else 1), round((ln-bad)/ln*100)))
             sys.stderr.flush()
 
         if line == '' or line.startswith('@'):
@@ -180,7 +189,7 @@ def merge_diffs(diff1, diff2, miss1, miss2):
     lo2 = miss2[0][1]
     hi2 = miss2[1][0]
 
-    if miss1 == miss2: 
+    if miss1 == miss2:
         # same coverage: only return duplicates
         same_diffs = [value for value in diff1 if value in diff2]
         return same_diffs, [(lo1, hi1)]
@@ -188,7 +197,7 @@ def merge_diffs(diff1, diff2, miss1, miss2):
         # non-overlapping, return all mutations
         all_diffs = list(set(diff1 + diff2))
         return all_diffs, [(lo1, hi1), (lo2, hi2)]
-    else: 
+    else:
         # imperfect overlap
         cov_union = (min([lo1, lo2]), max([hi1, hi2]))
         cov_intersect = (max([lo1, lo2]), min([hi1, hi2]))
@@ -204,24 +213,30 @@ def merge_diffs(diff1, diff2, miss1, miss2):
         return return_diffs, cov_union
 
 
-def parse_mm2(mm2, locator, stop=1e6, maxpos=29903):
+def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
     """
     Iterate over minimap2 output
     :param mm2:  generator, yields tuples of SAM output from minimap2
     :param locator:  SC2locator object, maps mutations to nicer notation
-    :param report:  int, console reporting frequency
+    :param paired:  logical, if False, treat as single-end reads
     :param stop:  int, limit to number of paired reads that mapped to sc2 to report
-    :return:
+    :param maxpos:  int, genome length
+    :return:  list, features for every pair of reads
+              dict, coverage per nucleotide position
     """
     count = 0
     total_coverage = dict([(pos, 0) for pos in range(maxpos)])
     res = []
+    iter = matchmaker(mm2) if paired else mm2
 
-    for r1, r2 in matchmaker(mm2):
-        _, diff1, miss1 = encode_diffs(r1)
-        _, diff2, miss2 = encode_diffs(r2)
-
-        diffs, coverage = merge_diffs(diff1, diff2, miss1, miss2)
+    for row in iter:
+        if paired:
+            r1, r2 = row
+            _, diff1, miss1 = encode_diffs(r1)
+            _, diff2, miss2 = encode_diffs(r2)
+            diffs, coverage = merge_diffs(diff1, diff2, miss1, miss2)
+        else:
+            _, diffs, coverage = encode_diffs(row)
 
         # update coverage stats
         if len(coverage) == 2 and type(coverage[0]) is not tuple:
@@ -242,29 +257,46 @@ def parse_mm2(mm2, locator, stop=1e6, maxpos=29903):
 
 
 def get_frequencies(res, coverage):
+    """
+    Normalize mutation counts by position-specific read depth (coverage)
+    :param res:  list, mutations for each read/pair
+    :param coverage:  dict, read depth per reference position
+    :return:  dict, relative frequency for every mutation
+    """
     counts = {}
     for row in res:
         for i, diff in enumerate(row['diff']):
             typ, pos, mut = diff
             label = row['mutations'][i]
             denom = coverage[pos]
-            key = ''.join(map(str, [typ, pos, mut]))
+            
+            if typ == '~':
+                key = ''.join(map(str, [typ, pos+1, mut]))
+            else:
+                key = ''.join(map(str, [typ, pos+1, ".", mut]))
+
             if pos not in counts:
                 counts.update({pos: {}})
             if key not in counts[pos]:
                 counts[pos].update({key: {'label': label, 'count': 0}})
-            counts[pos][key]['count'] += 1/denom
+            try:
+                counts[pos][key]['count'] += 1/denom
+            except ZeroDivisionError:
+                print(row, coverage[pos])
+                raise
     return counts
 
 
 def parse_args():
     parser = argparse.ArgumentParser("Wrapper script for minimap2")
 
-    parser.add_argument('fq1', type=str, help="<input> path to FASTQ R1 file.  May be gzip'ed.")
-    parser.add_argument('fq2', type=str, help="<input> path to FASTQ R2 file.  May be gzip'ed.")
+    parser.add_argument('fq1', type=str, help="<input> path to FASTQ, or R1 if paired file.  "
+                                                "May be gzip'ed.")
+    parser.add_argument('fq2', type=str, nargs='?',
+                        help="<input> path to FASTQ R2 file if paired.  May be gzip'ed.")
 
     parser.add_argument('-o', '--outfile', type=argparse.FileType('w'), required=False,
-                        help="<output, optional> path to write output, defaults to stdout")
+                        help="<output, optional> path to write CSV output, defaults to stdout")
     parser.add_argument('--limit', type=int, default=None,
                         help="Maximum number of reads to process; default process all.")
 
@@ -272,7 +304,7 @@ def parse_args():
                         help="<option> path to minimap2 executable")
     parser.add_argument('-a', '--align', action='store_true',
                         help="<option> output aligned sequences as FASTA")
-    parser.add_argument('-t', '--thread', type=int, default=3, 
+    parser.add_argument('-t', '--thread', type=int, default=3,
                         help="<option> number of threads")
 
     parser.add_argument('--filter', action='store_true',
@@ -295,9 +327,9 @@ if __name__ == '__main__':
     if args.outfile is None:
         args.outfile = sys.stdout
 
-    mm2 = minimap2_paired(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
+    mm2 = minimap2(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
     locator = SC2Locator(ref_file='data/NC_045512.fa')
-    res, coverage = parse_mm2(mm2, locator, stop=args.limit)
+    res, coverage = parse_mm2(mm2, locator, paired=args.fq2 is not None, stop=args.limit)
     counts = get_frequencies(res, coverage)
 
     # serial = json.dumps(res).replace('},', '},\n')
