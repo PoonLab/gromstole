@@ -210,7 +210,7 @@ def merge_diffs(diff1, diff2, miss1, miss2):
         for i in range(len(diff_diffs)):
             if cov_union[0] <= diff_loc[i] <= cov_union[1] and not cov_intersect[0] <= diff_loc[i] <= cov_intersect[1]:
                 return_diffs.append(diff_diffs[i])
-        return return_diffs, cov_union
+        return return_diffs, [cov_union]
 
 
 def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
@@ -238,9 +238,6 @@ def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
         else:
             _, diffs, coverage = encode_diffs(row)
 
-        # update coverage stats
-        if len(coverage) == 2 and type(coverage[0]) is not tuple:
-            coverage = [coverage]  # FIXME: this is a patch!
         for left, right in coverage:
             for pos in range(left, right):
                 total_coverage[pos] += 1
