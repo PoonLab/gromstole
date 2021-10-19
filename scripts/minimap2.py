@@ -236,7 +236,14 @@ def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
             _, diff2, miss2 = encode_diffs(r2)
             diffs, coverage = merge_diffs(diff1, diff2, miss1, miss2)
         else:
-            _, diffs, coverage = encode_diffs(row)
+            _, diffs, miss = encode_diffs(row)
+            coverage = []
+            for i in range(0, len(miss)-1):
+                _, left = miss[i]
+                right, _ = miss[i+1]
+                if left == right:
+                    continue  # adjacent missing intervals
+                coverage.append(tuple([left, right]))
 
         for left, right in coverage:
             for pos in range(left, right):
@@ -279,7 +286,7 @@ def get_frequencies(res, coverage):
             try:
                 counts[pos][key]['count'] += 1/denom
             except ZeroDivisionError:
-                print(row, coverage[pos])
+                print(pos, row, coverage[pos])
                 raise
     return counts
 
@@ -327,10 +334,16 @@ if __name__ == '__main__':
     mm2 = minimap2(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
     locator = SC2Locator(ref_file='data/NC_045512.fa')
     res, coverage = parse_mm2(mm2, locator, paired=args.fq2 is not None, stop=args.limit)
+
+    for pos, count in coverage.items():
+        if count > 0:
+            print(pos, count)
+
     counts = get_frequencies(res, coverage)
 
     # serial = json.dumps(res).replace('},', '},\n')
     # args.outfile.write(serial)
+    sys.exit()
 
     args.outfile.write("position,label,mutation,frequency,coverage\n")
     for pos, mutations in counts.items():
