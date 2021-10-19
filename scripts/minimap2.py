@@ -273,6 +273,8 @@ def get_frequencies(res, coverage):
             typ, pos, mut = diff
             label = row['mutations'][i]
             denom = coverage[pos]
+            if denom == 0:
+                continue
             
             if typ == '~':
                 key = ''.join(map(str, [typ, pos+1, mut]))
@@ -334,16 +336,10 @@ if __name__ == '__main__':
     mm2 = minimap2(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
     locator = SC2Locator(ref_file='data/NC_045512.fa')
     res, coverage = parse_mm2(mm2, locator, paired=args.fq2 is not None, stop=args.limit)
-
-    for pos, count in coverage.items():
-        if count > 0:
-            print(pos, count)
-
     counts = get_frequencies(res, coverage)
 
     # serial = json.dumps(res).replace('},', '},\n')
     # args.outfile.write(serial)
-    sys.exit()
 
     args.outfile.write("position,label,mutation,frequency,coverage\n")
     for pos, mutations in counts.items():
