@@ -25,9 +25,7 @@ def cutadapt(fq1, fq2, adapter="AGATCGGAAGAGC", ncores=1):
     of2 = tempfile.NamedTemporaryFile('w', delete=False)
     # FIXME: need to be able to pass different path to executable
     cmd = ['cutadapt', '-a', adapter, '-A', adapter, '-o', of1.name, '-p', of2.name,
-        '-j', str(ncores), '--quiet', fq1]
-    if fq2:
-        cmd.append(fq2)
+           '-j', str(ncores), '--quiet', fq1, fq2]
     p = subprocess.check_call(cmd)
     of1.close()
     of2.close()
@@ -389,11 +387,16 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--thread', type=int, default=3,
                         help="<option> number of threads")
     parser.add_argument('--ref', type=str, help="<input> path to target FASTA (reference)")
+    parser.add_argument('--nocut', action='store_true', help='bypass cutadapt')
 
     args = parser.parse_args()
 
     # adapter trimming
-    tf1, tf2 = cutadapt(fq1=args.fq1, fq2=args.fq2, ncores=args.thread)
+    if args.nocut:
+        tf1, tf2 = args.fq1, args.fq2
+    else:
+        # FIXME: what about single FASTQs?
+        tf1, tf2 = cutadapt(fq1=args.fq1, fq2=args.fq2, ncores=args.thread)
 
     # main process
     counts, coverage = process(
