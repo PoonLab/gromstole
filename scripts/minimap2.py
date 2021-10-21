@@ -334,7 +334,7 @@ if __name__ == '__main__':
         args.outfile = sys.stdout
 
     mm2 = minimap2(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
-    locator = SC2Locator(ref_file='data/NC_045512.fa')
+    locator = SC2Locator(ref_file=args.ref)
     res, coverage = parse_mm2(mm2, locator, paired=args.fq2 is not None, stop=args.limit)
     counts = get_frequencies(res, coverage)
 
