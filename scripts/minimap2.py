@@ -12,20 +12,21 @@ import tempfile
 from seq_utils import SC2Locator
 
 
-def cutadapt(fq1, fq2, adapter="AGATCGGAAGAGC", ncores=1):
+def cutadapt(fq1, fq2, adapter="AGATCGGAAGAGC", ncores=1, minlen=10):
     """
     Wrapper for cutadapt
     :param fq1:  str, path to FASTQ R1 file
     :param fq2:  str, path to FASTQ R2 file
     :param adapter:  adapter sequence, defaults to universal Illumina TruSeq
     :param ncores:  int, number of cores to run cutadapt
+    :param minlen:  int, discard trimmed reads below this length
     :return:
     """
     of1 = tempfile.NamedTemporaryFile('w', delete=False)
     of2 = tempfile.NamedTemporaryFile('w', delete=False)
     # FIXME: need to be able to pass different path to executable
     cmd = ['cutadapt', '-a', adapter, '-A', adapter, '-o', of1.name, '-p', of2.name,
-           '-j', str(ncores), '--quiet', fq1, fq2]
+           '-j', str(ncores), '-m', str(minlen), '--quiet', fq1, fq2]
     p = subprocess.check_call(cmd)
     of1.close()
     of2.close()
@@ -250,6 +251,10 @@ def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
     iter = matchmaker(mm2) if paired else mm2
 
     for row in iter:
+        count += 1
+        if stop and count > stop:
+            break
+
         if paired:
             r1, r2 = row
             _, diff1, miss1 = encode_diffs(r1)
@@ -272,10 +277,6 @@ def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
         # get indel or AA sub notations
         mut = [locator.parse_mutation(d) for d in diffs]
         res.append({"diff": diffs, "mutations": mut})
-
-        count += 1
-        if stop and count > stop:
-            break
 
     return res, total_coverage
 
@@ -316,7 +317,7 @@ def get_frequencies(res, coverage):
 def make_filename(outdir, prefix, suffix, replace=False):
     filename = os.path.join(outdir, "{}.{}".format(prefix.strip('.'), suffix.strip('.')))
     if os.path.exists(filename) and not replace:
-        print("Output file {} already exists, use --replace to overwrite")
+        print("Output file {} already exists, use --replace to overwrite".format(filename))
         sys.exit()
     return filename
 
@@ -392,6 +393,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # check output files
+    outfile = make_filename(args.outdir, args.prefix, "mapped.csv", replace=args.replace)
+    covfile = make_filename(args.outdir, args.prefix, "coverage.csv", replace=args.replace)
+
     # adapter trimming
     if args.nocut:
         counts, coverage = process(
@@ -409,8 +414,6 @@ if __name__ == '__main__':
         os.remove(tf2)
 
     # write outputs
-    outfile = make_filename(args.outdir, args.prefix, "mapped.csv", replace=args.replace)
     write_frequencies(counts, coverage, outfile)
-
-    covfile = make_filename(args.outdir, args.prefix, "coverage.csv", replace=args.replace)
     write_coverage(coverage, covfile)
+
