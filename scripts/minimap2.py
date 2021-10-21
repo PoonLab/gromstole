@@ -293,69 +293,68 @@ def get_frequencies(res, coverage):
     return counts
 
 
-def parse_args():
-    parser = argparse.ArgumentParser("Wrapper script for minimap2")
-
-    parser.add_argument('fq1', type=str, help="<input> path to FASTQ, or R1 if paired file.  "
-                                                "May be gzip'ed.")
-    parser.add_argument('fq2', type=str, nargs='?',
-                        help="<input> path to FASTQ R2 file if paired.  May be gzip'ed.")
-    parser.add_argument('-o', '--outdir', type=str, help="<output> directory to write files",
-                        default=os.getcwd())
-    parser.add_argument('-p', '--prefix', type=str, help="<output> prefix for output files")
-
-    parser.add_argument('--limit', type=int, default=None,
-                        help="Maximum number of reads to process (for debugging); default process all.")
-
-    parser.add_argument('--path', type=str, default='minimap2',
-                        help="<option> path to minimap2 executable")
-    parser.add_argument('-a', '--align', action='store_true',
-                        help="<option> output aligned sequences as FASTA")
-    parser.add_argument('-t', '--thread', type=int, default=3,
-                        help="<option> number of threads")
-
-    parser.add_argument('--filter', action='store_true',
-                        help="<option> filter problematic sites")
-
-    ref_file = os.path.join("data", "NC_045512.fa")
-    vcf_file = os.path.join("data", "problematic_sites_sarsCov2.vcf")
-
-    parser.add_argument('--ref', type=str, default=ref_file,
-                        help="<input> path to target FASTA (reference)")
-    parser.add_argument("--vcf", type=str, default=vcf_file,
-                        help="Path to VCF file of problematic sites in SARS-COV-2 genome. "
-                             "Source: https://github.com/W-L/ProblematicSites_SARS-CoV2")
-
-    return parser.parse_args()
-
-
 def make_filename(outdir, prefix, suffix):
-    """ TODO: handle placement of dots """
-    filename = os.path.join(outdir, "{}.{}}".format(prefix, suffix))
+    filename = os.path.join(outdir, "{}.{}".format(prefix.strip('.'), suffix.strip('.')))
     if os.path.exists(filename):
         print("Output file {} already exists, use --replace to overwrite")
         sys.exit()
     return filename
 
 
-if __name__ == '__main__':
-    args = parse_args()
-
-    mm2 = minimap2(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
-    locator = SC2Locator(ref_file=args.ref)
-    res, coverage = parse_mm2(mm2, locator, paired=args.fq2 is not None, stop=args.limit)
+def process(fq1, fq2, ref, nthread, binpath, limit, outfile, covfile):
+    """
+    Main function
+    :param fq1:  str, path to FASTQ R1 or single file
+    :param fq2:  str, path to FASTQ R2 file, or None if single FASTQ
+    :param ref:  str, path to reference FASTA file
+    :param nthread:  int, number of threads to run minimap2
+    :param binpath:  str, path to minimap2 binary executable file
+    :param limit:  int, for debugging, process only <limit> reads / pairs
+    :param outfile:  str, path to write mutation frequency CSV
+    :param covfile:  str, path to write coverage CSV
+    """
+    mm2 = minimap2(fq1, fq2, ref=ref, nthread=nthread, path=binpath)
+    locator = SC2Locator(ref_file=ref)
+    res, coverage = parse_mm2(mm2, locator, paired=fq2 is not None, stop=limit)
     counts = get_frequencies(res, coverage)
 
-    outfile = open(make_filename(args.outdir, args.prefix, ".mapped.csv"), 'w')
-    outfile.write("position,label,mutation,frequency,coverage\n")
-    for pos, mutations in counts.items():
-        denom = coverage[pos]
-        for mut, freq in mutations.items():
-            outfile.write('{},{},{},{},{}\n'.format(
-                pos, mut, freq['label'], freq['count'], denom))
-    outfile.close()
+    # export mutation frequencies
+    with open(outfile, 'w') as handle:
+        handle.write("position,label,mutation,frequency,coverage\n")
+        for pos, mutations in counts.items():
+            denom = coverage[pos]
+            for mut, freq in mutations.items():
+                handle.write('{},{},{},{},{}\n'.format(
+                    pos, mut, freq['label'], freq['count'], denom))
 
-    with open(make_filename(args.outdir, args.prefix, ".coverage.csv"), 'w') as covfile:
-        covfile.write('position,coverage\n')
+    # export coverage statistics
+    with open(covfile, 'w') as handle:
+        handle.write('position,coverage\n')
         for pos, count in coverage.items():
-            covfile.write('{},{}\n'.format(pos, count))
+            handle.write('{},{}\n'.format(pos, count))
+
+
+if __name__ == '__main__':
+    # command-line interface for a single file / pair of files
+    parser = argparse.ArgumentParser("Wrapper script for minimap2")
+    parser.add_argument('fq1', type=str, help="<input> path to FASTQ, or R1 if paired file.  "
+                                              "May be gzip'ed.")
+    parser.add_argument('fq2', type=str, nargs='?',
+                        help="<input> path to FASTQ R2 file if paired.  May be gzip'ed.")
+    parser.add_argument('-o', '--outdir', type=str, help="<output> directory to write files",
+                        default=os.getcwd())
+    parser.add_argument('-p', '--prefix', type=str, help="<output> prefix for output files")
+    parser.add_argument('--limit', type=int, default=None,
+                        help="Maximum number of reads to process (for debugging); default process all.")
+    parser.add_argument('-x', '--binpath', type=str, default='minimap2',
+                        help="<option> path to minimap2 executable")
+    parser.add_argument('-t', '--thread', type=int, default=3,
+                        help="<option> number of threads")
+    parser.add_argument('--ref', type=str, help="<input> path to target FASTA (reference)")
+
+    args = parser.parse_args()
+
+    outfile = make_filename(args.outdir, args.prefix, "mapped.csv")
+    covfile = make_filename(args.outdir, args.prefix, "coverage.csv")
+    process(args.fq1, args.fq2, ref=args.ref, nthread=args.nthread, binpath=args.binpath,
+            limit=args.limit, outfile=outfile, covfile=covfile)
