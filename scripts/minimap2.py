@@ -300,11 +300,12 @@ def parse_args():
                                                 "May be gzip'ed.")
     parser.add_argument('fq2', type=str, nargs='?',
                         help="<input> path to FASTQ R2 file if paired.  May be gzip'ed.")
+    parser.add_argument('-o', '--outdir', type=str, help="<output> directory to write files",
+                        default=os.getcwd())
+    parser.add_argument('-p', '--prefix', type=str, help="<output> prefix for output files")
 
-    parser.add_argument('-o', '--outfile', type=argparse.FileType('w'), required=False,
-                        help="<output, optional> path to write CSV output, defaults to stdout")
     parser.add_argument('--limit', type=int, default=None,
-                        help="Maximum number of reads to process; default process all.")
+                        help="Maximum number of reads to process (for debugging); default process all.")
 
     parser.add_argument('--path', type=str, default='minimap2',
                         help="<option> path to minimap2 executable")
@@ -328,22 +329,33 @@ def parse_args():
     return parser.parse_args()
 
 
+def make_filename(outdir, prefix, suffix):
+    """ TODO: handle placement of dots """
+    filename = os.path.join(outdir, "{}.{}}".format(prefix, suffix))
+    if os.path.exists(filename):
+        print("Output file {} already exists, use --replace to overwrite")
+        sys.exit()
+    return filename
+
+
 if __name__ == '__main__':
     args = parse_args()
-    if args.outfile is None:
-        args.outfile = sys.stdout
 
     mm2 = minimap2(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, path=args.path)
     locator = SC2Locator(ref_file='data/NC_045512.fa')
     res, coverage = parse_mm2(mm2, locator, paired=args.fq2 is not None, stop=args.limit)
     counts = get_frequencies(res, coverage)
 
-    # serial = json.dumps(res).replace('},', '},\n')
-    # args.outfile.write(serial)
-
-    args.outfile.write("position,label,mutation,frequency,coverage\n")
+    outfile = open(make_filename(args.outdir, args.prefix, ".mapped.csv"), 'w')
+    outfile.write("position,label,mutation,frequency,coverage\n")
     for pos, mutations in counts.items():
         denom = coverage[pos]
         for mut, freq in mutations.items():
-            args.outfile.write('{},{},{},{},{}\n'.format(
+            outfile.write('{},{},{},{},{}\n'.format(
                 pos, mut, freq['label'], freq['count'], denom))
+    outfile.close()
+
+    with open(make_filename(args.outdir, args.prefix, ".coverage.csv"), 'w') as covfile:
+        covfile.write('position,coverage\n')
+        for pos, count in coverage.items():
+            covfile.write('{},{}\n'.format(pos, count))
