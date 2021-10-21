@@ -7,9 +7,28 @@ import argparse
 import re
 import sys
 import os
-import json
+import tempfile
 
 from seq_utils import SC2Locator
+
+
+def cutadapt(fq1, fq2, adapter="AGATCGGAAGAGC", ncores=1):
+    """
+    Wrapper for cutadapt
+    :param fq1:  str, path to FASTQ R1 file
+    :param fq2:  str, path to FASTQ R2 file
+    :param adapter:  adapter sequence, defaults to universal Illumina TruSeq
+    :return:
+    """
+    of1 = tempfile.NamedTemporaryFile('w', delete=False)
+    of2 = tempfile.NamedTemporaryFile('w', delete=False)
+    p = subprocess.check_call([
+        'cutadapt', '-a', adapter, '-A', adapter, '-o', of1.name, '-p', of2.name,
+        '-j', str(ncores), '--quiet', fq1, fq2,
+    ])
+    of1.close()
+    of2.close()
+    return of1.name, of2.name
 
 
 def minimap2(fq1, fq2, ref, path='minimap2', nthread=3, report=1e5):
@@ -301,23 +320,35 @@ def make_filename(outdir, prefix, suffix, replace=False):
     return filename
 
 
-def process(fq1, fq2, ref, nthread, binpath, limit, outfile, covfile):
+def process(fq1, fq2, ref, nthread, binpath, limit):
     """
     Main function
+
     :param fq1:  str, path to FASTQ R1 or single file
     :param fq2:  str, path to FASTQ R2 file, or None if single FASTQ
     :param ref:  str, path to reference FASTA file
     :param nthread:  int, number of threads to run minimap2
     :param binpath:  str, path to minimap2 binary executable file
     :param limit:  int, for debugging, process only <limit> reads / pairs
-    :param outfile:  str, path to write mutation frequency CSV
-    :param covfile:  str, path to write coverage CSV
+
+    :return:  dict, mutation frequencies keyed by nucleotide position
+              dict, coverage keyed by nucleotide position
     """
     mm2 = minimap2(fq1, fq2, ref=ref, nthread=nthread, path=binpath)
     locator = SC2Locator(ref_file=ref)
     res, coverage = parse_mm2(mm2, locator, paired=fq2 is not None, stop=limit)
     counts = get_frequencies(res, coverage)
+    return counts, coverage
 
+
+def write_frequencies(counts, coverage, outfile):
+    """
+
+    :param counts:
+    :param coverage:
+    :param outfile:
+    :return:
+    """
     # export mutation frequencies
     with open(outfile, 'w') as handle:
         handle.write("position,label,mutation,frequency,coverage\n")
@@ -327,6 +358,8 @@ def process(fq1, fq2, ref, nthread, binpath, limit, outfile, covfile):
                 handle.write('{},{},{},{},{}\n'.format(
                     pos, mut, freq['label'], freq['count'], denom))
 
+
+def write_coverage(coverage, covfile):
     # export coverage statistics
     with open(covfile, 'w') as handle:
         handle.write('position,coverage\n')
@@ -356,7 +389,21 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # adapter trimming
+    tf1, tf2 = cutadapt(fq1=args.fq1, fq2=args.fq2, ncores=args.thread)
+
+    # main process
+    counts, coverage = process(
+        fq1=tf1, fq2=tf2, ref=args.ref, nthread=args.thread, binpath=args.binpath, limit=args.limit
+    )
+
+    # clean up temporary files
+    os.remove(tf1)
+    os.remove(tf2)
+
+    # write outputs
     outfile = make_filename(args.outdir, args.prefix, "mapped.csv", replace=args.replace)
+    write_frequencies(counts, coverage, outfile)
+
     covfile = make_filename(args.outdir, args.prefix, "coverage.csv", replace=args.replace)
-    process(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, binpath=args.binpath,
-            limit=args.limit, outfile=outfile, covfile=covfile)
+    write_coverage(coverage, covfile)
