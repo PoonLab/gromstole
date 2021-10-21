@@ -293,9 +293,9 @@ def get_frequencies(res, coverage):
     return counts
 
 
-def make_filename(outdir, prefix, suffix):
+def make_filename(outdir, prefix, suffix, replace=False):
     filename = os.path.join(outdir, "{}.{}".format(prefix.strip('.'), suffix.strip('.')))
-    if os.path.exists(filename):
+    if os.path.exists(filename) and not replace:
         print("Output file {} already exists, use --replace to overwrite")
         sys.exit()
     return filename
@@ -343,7 +343,9 @@ if __name__ == '__main__':
                         help="<input> path to FASTQ R2 file if paired.  May be gzip'ed.")
     parser.add_argument('-o', '--outdir', type=str, help="<output> directory to write files",
                         default=os.getcwd())
+    # TODO: default value for prefix?
     parser.add_argument('-p', '--prefix', type=str, help="<output> prefix for output files")
+    parser.add_argument('--replace', action='store_true', help="if set, overwite output files")
     parser.add_argument('--limit', type=int, default=None,
                         help="Maximum number of reads to process (for debugging); default process all.")
     parser.add_argument('-x', '--binpath', type=str, default='minimap2',
@@ -354,7 +356,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    outfile = make_filename(args.outdir, args.prefix, "mapped.csv")
-    covfile = make_filename(args.outdir, args.prefix, "coverage.csv")
-    process(args.fq1, args.fq2, ref=args.ref, nthread=args.nthread, binpath=args.binpath,
+    outfile = make_filename(args.outdir, args.prefix, "mapped.csv", replace=args.replace)
+    covfile = make_filename(args.outdir, args.prefix, "coverage.csv", replace=args.replace)
+    process(args.fq1, args.fq2, ref=args.ref, nthread=args.thread, binpath=args.binpath,
             limit=args.limit, outfile=outfile, covfile=covfile)
