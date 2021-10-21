@@ -386,26 +386,27 @@ if __name__ == '__main__':
                         help="<option> path to minimap2 executable")
     parser.add_argument('-t', '--thread', type=int, default=3,
                         help="<option> number of threads")
-    parser.add_argument('--ref', type=str, help="<input> path to target FASTA (reference)")
+    parser.add_argument('--ref', type=str, required=True,
+                        help="<input> path to target FASTA (reference)")
     parser.add_argument('--nocut', action='store_true', help='bypass cutadapt')
 
     args = parser.parse_args()
 
     # adapter trimming
     if args.nocut:
-        tf1, tf2 = args.fq1, args.fq2
+        counts, coverage = process(
+            fq1=args.fq1, fq2=args.fq2, ref=args.ref, nthread=args.thread,
+            binpath=args.binpath, limit=args.limit
+        )
     else:
         # FIXME: what about single FASTQs?
         tf1, tf2 = cutadapt(fq1=args.fq1, fq2=args.fq2, ncores=args.thread)
-
-    # main process
-    counts, coverage = process(
-        fq1=tf1, fq2=tf2, ref=args.ref, nthread=args.thread, binpath=args.binpath, limit=args.limit
-    )
-
-    # clean up temporary files
-    os.remove(tf1)
-    os.remove(tf2)
+        counts, coverage = process(
+            fq1=tf1, fq2=tf2, ref=args.ref, nthread=args.thread, binpath=args.binpath,
+            limit=args.limit
+        )
+        os.remove(tf1)
+        os.remove(tf2)
 
     # write outputs
     outfile = make_filename(args.outdir, args.prefix, "mapped.csv", replace=args.replace)
