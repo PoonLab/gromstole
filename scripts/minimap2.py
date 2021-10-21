@@ -18,14 +18,17 @@ def cutadapt(fq1, fq2, adapter="AGATCGGAAGAGC", ncores=1):
     :param fq1:  str, path to FASTQ R1 file
     :param fq2:  str, path to FASTQ R2 file
     :param adapter:  adapter sequence, defaults to universal Illumina TruSeq
+    :param ncores:  int, number of cores to run cutadapt
     :return:
     """
     of1 = tempfile.NamedTemporaryFile('w', delete=False)
     of2 = tempfile.NamedTemporaryFile('w', delete=False)
-    p = subprocess.check_call([
-        'cutadapt', '-a', adapter, '-A', adapter, '-o', of1.name, '-p', of2.name,
-        '-j', str(ncores), '--quiet', fq1, fq2,
-    ])
+    # FIXME: need to be able to pass different path to executable
+    cmd = ['cutadapt', '-a', adapter, '-A', adapter, '-o', of1.name, '-p', of2.name,
+        '-j', str(ncores), '--quiet', fq1]
+    if fq2:
+        cmd.append(fq2)
+    p = subprocess.check_call(cmd)
     of1.close()
     of2.close()
     return of1.name, of2.name
