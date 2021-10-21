@@ -1,0 +1,85 @@
+setwd('~/git/wastewater/results/')
+
+mapfiles <- Sys.glob('*.mapped.csv')
+covfiles <- Sys.glob('*.coverage.csv')
+
+results <- lapply(covfiles, read.csv)
+names(results) <- gsub(".coverage.csv", "", covfiles)
+
+# draw SARS-CoV-2 genome
+draw.sc2 <- function() {
+  rect(xleft=1, xright=265, ybottom=0.5e6, ytop=1.2e6)  # 5'UTR
+  
+  rect(xleft=266, xright=13468, ybottom=0.5e6, ytop=1.2e6)  # ORF1a
+  text(x=mean(c(266, 13468)), y=0.9e6, cex=0.6, label='ORF1a')
+  
+  rect(xleft=13468, xright=21555, ybottom=0.5e6, ytop=1.2e6)  # ORF1b
+  text(x=mean(c(13468, 21555)), y=0.9e6, cex=0.6, label='ORF1b')
+  
+  rect(xleft=21563, xright=25384, ybottom=0.5e6, ytop=1.2e6)  # S
+  text(x=mean(c(21563, 25384)), y=0.9e6, cex=0.6, label='S')
+  
+  rect(xleft=25393, xright=26220, ybottom=0.5e6, ytop=1.2e6)  # ORF3a
+  rect(xleft=26245, xright=26472, ybottom=0.5e6, ytop=1.2e6)  # E
+  rect(xleft=26523, xright=27191, ybottom=0.5e6, ytop=1.2e6) # M
+  rect(xleft=27202, xright=27387, ybottom=0.5e6, ytop=1.2e6)  # orf6
+  rect(xleft=27394, xright=27759, ybottom=0.5e6, ytop=1.2e6)  # orf7a
+  rect(xleft=27756, xright=27887, ybottom=0.5e6, ytop=1.2e6)  # orf7b
+  rect(xleft=27894, xright=28259, ybottom=0.5e6, ytop=1.2e6)  # orf8
+  rect(xleft=28274, xright=29533, ybottom=0.5e6, ytop=1.2e6)  # N
+  rect(xleft=29558, xright=29674, ybottom=0.5e6, ytop=1.2e6)  # orf10
+}
+
+# coverage
+res <- 300
+png(file="~/Desktop/coverage.png", width=11*res, height=8*res, res=res)
+par(mfrow=c(3,2), mar=c(5,5,2,1))
+for (i in 1:length(results)) {
+  df <- results[[i]]
+  df[,1] <- df[,1] + 1  # shift from zero-index
+  df[,2][df[,2]==0] <- 0.1
+  plot(df[,1], df[,2], type='s', log='y', las=1, ylim=c(1, 1e6),
+       xlab='Reference position', ylab='Read depth', yaxt='n')
+  axis(side=2, at=c(1, 10, 100, 1000, 1e4, 1e5, 1e6), las=1,
+       labels=parse(text=paste("10^", 0:6)))
+  polygon(c(0.1, df[,1], 29903, 0), c(0, df[,2], 0.1, 0.1), col='grey')
+  title(main=names(results)[i], adj=0)
+  draw.sc2()
+}
+dev.off()
+
+
+
+results <- lapply(mapfiles, read.csv)
+names(results) <- gsub(".mapped.csv", "", mapfiles)
+
+lapply(results, function(df) {
+  temp <- df[df$coverage > 100, ]
+  temp[order(temp$frequency, decreasing=TRUE),][1:10,]
+})
+
+
+# B.1.617.2 mutations
+delta <- c('aa:orf1b:P314L', 'aa:S:T19R', 'del:22029:6', 'aa:S:L452R', 
+           'aa:S:T478K', 'aa:S:D614G', 'aa:S:P681R', 'aa:S:D950N', 
+           'aa:orf3a:S26L', 'aa:M:I82T', 'aa:orf7a:V82A', 'aa:orf7a:T120I', 
+           'del:28271:1', 'aa:N:D63G', 'aa:N:R203M', 'aa:N:D377Y', 
+           'aa:orf1a:A1306S', 'aa:orf1a:P2046L', 'aa:orf1a:P2287S', 
+           'aa:orf1a:V2930L', 'aa:orf1a:T3255I', 'aa:orf1a:T3646A', 
+           'aa:orf1b:G662S', 'aa:orf1b:P1000L', 'aa:orf1b:A1918V', 
+           'aa:orf7b:T40I', 'del:28248:6', 'aa:N:G215C')
+
+alpha <- c('aa:orf1a:T1001I', 'aa:orf1a:A1708D', 'aa:orf1a:I2230T', 
+           'del:11288:9', 'aa:orf1b:P314L', 'del:21765:6', 'del:21991:3', 
+           'aa:S:N501Y', 'aa:S:A570D', 'aa:S:D614G', 'aa:S:P681H', 
+           'aa:S:T716I', 'aa:S:S982A', 'aa:S:D1118H', 'aa:orf8:Q27*', 
+           'aa:orf8:R52I', 'aa:orf8:Y73C', 'aa:N:D3H', 'aa:N:D3V', 'aa:N:D3E', 
+           'aa:N:R203K', 'aa:N:G204R', 'aa:N:S235F', 'del:28271:1')
+
+for (df in results) {
+  temp <- df[df$coverage > 100, ]
+  foo <- temp[is.element(temp$mutation, delta),]
+  barplot(foo$frequency)
+}
+
+
