@@ -3,8 +3,8 @@ setwd('~/git/wastewater/results/')
 mapfiles <- Sys.glob('*.mapped.csv')
 covfiles <- Sys.glob('*.coverage.csv')
 
-results <- lapply(covfiles, read.csv)
-names(results) <- gsub(".coverage.csv", "", covfiles)
+coverage <- lapply(covfiles, read.csv)
+names(coverage) <- gsub(".coverage.csv", "", covfiles)
 
 # draw SARS-CoV-2 genome
 draw.sc2 <- function() {
@@ -34,10 +34,11 @@ draw.sc2 <- function() {
 res <- 300
 png(file="~/Desktop/coverage.png", width=11*res, height=8*res, res=res)
 par(mfrow=c(3,2), mar=c(5,5,2,1))
-for (i in 1:length(results)) {
-  df <- results[[i]]
+for (i in 1:length(coverage)) {
+  df <- coverage[[i]]
   df[,1] <- df[,1] + 1  # shift from zero-index
   df[,2][df[,2]==0] <- 0.1
+  
   plot(df[,1], df[,2], type='s', log='y', las=1, ylim=c(1, 1e6),
        xlab='Reference position', ylab='Read depth', yaxt='n')
   axis(side=2, at=c(1, 10, 100, 1000, 1e4, 1e5, 1e6), las=1,
@@ -50,13 +51,14 @@ dev.off()
 
 
 
-results <- lapply(mapfiles, read.csv)
-names(results) <- gsub(".mapped.csv", "", mapfiles)
+maps <- lapply(mapfiles, read.csv)
+names(maps) <- gsub(".mapped.csv", "", mapfiles)
 
-lapply(results, function(df) {
-  temp <- df[df$coverage > 100, ]
-  temp[order(temp$frequency, decreasing=TRUE),][1:10,]
-})
+# quick summary
+#lapply(results, function(df) {
+#  temp <- df[df$coverage > 100, ]
+#  temp[order(temp$frequency, decreasing=TRUE),][1:10,]
+#})
 
 
 # B.1.617.2 mutations
@@ -76,10 +78,37 @@ alpha <- c('aa:orf1a:T1001I', 'aa:orf1a:A1708D', 'aa:orf1a:I2230T',
            'aa:orf8:R52I', 'aa:orf8:Y73C', 'aa:N:D3H', 'aa:N:D3V', 'aa:N:D3E', 
            'aa:N:R203K', 'aa:N:G204R', 'aa:N:S235F', 'del:28271:1')
 
-for (df in results) {
-  temp <- df[df$coverage > 100, ]
-  foo <- temp[is.element(temp$mutation, delta),]
-  barplot(foo$frequency)
-}
+pal <- rev(hcl.colors(n=8))
+# assume a maximum of 500,000
+pal.idx <- exp(seq(0, log(5e5), length.out=8))
+pal.idx[1] <- 0
 
+res <- 300
+png(filename="delta.png", width=12*res, height=8*res, res=res)
+par(mfrow=c(2,3), mar=c(5,7,1,2))
+for (i in 1:length(maps)) {
+  df <- maps[[i]]
+  temp <- df[df$coverage > 100, ]
+  temp <- temp[temp$label != '~9053C', ]  # hack
+  idx <- unlist(sapply(delta, function(m) {
+    if(is.element(m, temp$mutation)) {
+      which(temp$mutation == m)
+    } else {
+      NA
+    }
+  }))
+  freq <- temp$frequency[idx]
+  names(freq) <- names(idx)
+  count <- temp$coverage[idx]
+  count[is.na(count)] <- 0
+
+  barplot(freq, horiz=T, las=1, xlim=c(0,1), cex.names=0.75,
+          col=pal[as.integer(cut(count, breaks=pal.idx))],
+          xlab='Estimated frequency')
+  text(x=ifelse(is.na(freq), 0, freq)+0.01, 
+       y=(1:length(freq)-0.5)*1.2, 
+       label=count, xpd=NA, adj=0, cex=0.8)
+  title(main=names(results)[i], adj=0)
+}
+dev.off()
 
