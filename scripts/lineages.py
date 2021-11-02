@@ -133,7 +133,8 @@ def minimap2_fasta(infile, ref, stream=False, path='minimap2', nthread=3, minlen
         # validate CIGAR string
         is_valid = re.match(r'^((\d+)([MIDNSHPX=]))*$', cigar)
         if not is_valid:
-            raise RuntimeError('Invalid CIGAR string: {!r}.'.format(cigar))
+            #raise RuntimeError('Invalid CIGAR string: {!r}.'.format(cigar))
+            continue
 
         rpos = int(rpos) - 1  # convert to 0-index
         yield qname, rpos, cigar, seq
@@ -147,13 +148,15 @@ for row in reader:
     tiles.append(tuple([int(lpos)+int(llen), int(rpos)-1]))
 
 # parse Pango lineage designations file
-reader = csv.reader(open("data/lineages.csv"))
+reader = csv.reader(open("data/lineages3.csv"))
 lineages = dict([row for row in reader])
-
+print(f"lineages3.csv has {len(lineages)} rows.")
 
 # open stream to xz-compressed FASTA
 handle = lzma.open("data/sequences.fasta.xz", 'rt')
 ref_file = "data/NC_045512.fa"
+
+
 
 batcher = batch_fasta(filter(lambda x: x[0] in lineages, iter_fasta(handle)), size=100)
 counter = 0
@@ -166,15 +169,14 @@ for fasta in batcher:
     for qname, diffs, missing in [encode_diffs_classic(row) for row in mm2]:
         diffs = ["".join(map(str, x)) for x in diffs]
         res.append({"qname": qname, "lineage": lineages[qname], "diffs": diffs, "missing": missing})
+    # Timing functions  
     if not counter % 200:
         toc = time.perf_counter()
-        print(f"{toc - tic:0.3f} for loop {counter}, {toc-tic0:0.3f} total.")
-    #if counter >= 8:
-    #    break
+        print(f"{toc - tic:0.3f} for loop {counter}, {(toc-tic0)/60:0.3f} minutes total, len(res) = {len(res)}")
 
 toc0 = time.perf_counter()
 print(f"total time: {toc0 - tic0:0.3f}")
+print(len(res))
 
 serial = json.dumps(res).replace('},', '},\n')
-#print(serial)
 open("data/pangodiffs.json", "w").write(serial)
