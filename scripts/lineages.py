@@ -114,12 +114,11 @@ def minimap2_fasta(infile, ref, stream=False, path='minimap2', nthread=3, minlen
         )
         output = map(lambda x: x.decode('utf-8'), p.stdout)
 
-    print(len(output))
     for line in output:
         if line == '' or line.startswith('@'):
             # split on \n leaves empty line; @ prefix header lines
             continue
-        
+
         qname, flag, rname, rpos, _, cigar, _, _, _, seq = \
             line.strip('\n').split('\t')[:10]
 
@@ -162,20 +161,20 @@ res = []
 tic0 = time.perf_counter()
 for fasta in batcher:
     tic = time.perf_counter()
-    mm2 = minimap2_fasta(fasta, ref=ref_file, stream=True, nthread=4, minlen=28500)
+    mm2 = minimap2_fasta(fasta, ref=ref_file, stream=True, nthread=4, minlen=28000)
     counter += 1
     for qname, diffs, missing in [encode_diffs_classic(row) for row in mm2]:
         diffs = ["".join(map(str, x)) for x in diffs]
         res.append({"qname": qname, "lineage": lineages[qname], "diffs": diffs, "missing": missing})
-        break
-    if not counter % 20:
+    if not counter % 200:
         toc = time.perf_counter()
         print(f"{toc - tic:0.3f} for loop {counter}, {toc-tic0:0.3f} total.")
-    #if counter > 10:
+    #if counter >= 8:
     #    break
 
 toc0 = time.perf_counter()
 print(f"total time: {toc0 - tic0:0.3f}")
 
 serial = json.dumps(res).replace('},', '},\n')
+#print(serial)
 open("data/pangodiffs.json", "w").write(serial)
