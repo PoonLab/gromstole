@@ -148,9 +148,9 @@ for row in reader:
     tiles.append(tuple([int(lpos)+int(llen), int(rpos)-1]))
 
 # parse Pango lineage designations file
-reader = csv.reader(open("data/lineages3.csv"))
+reader = csv.reader(open("data/lineages.csv"))
 lineages = dict([row for row in reader])
-print(f"lineages3.csv has {len(lineages)} rows.")
+print(f"lineages.csv has {len(lineages)} rows.")
 
 # open stream to xz-compressed FASTA
 handle = lzma.open("data/sequences.fasta.xz", 'rt')
