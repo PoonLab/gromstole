@@ -4,7 +4,7 @@
 import gzip
 import csv
 
-max_iter = 31000
+max_iter = 10000000
 
 listnames = open("data/lineages.csv")
 
@@ -31,5 +31,9 @@ with gzip.open("data/metadata.tsv.gz", "rt") as metadata:
         counter += 1
         if counter > max_iter:
             break
+        if not counter % 10000:
+            print(len(pangomiss))
 
 print(len(pangomiss))
+
+open("data/pangomiss.txt", "w").write("\n".join(map(str, pangomiss)))
