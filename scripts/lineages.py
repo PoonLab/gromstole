@@ -179,4 +179,4 @@ print(f"total time: {toc0 - tic0:0.3f}")
 print(len(res))
 
 serial = json.dumps(res).replace('},', '},\n')
-open("data/pangodiffs.json", "w").write(serial)
+open("data/representative_pangodiffs.json", "w").write(serial)

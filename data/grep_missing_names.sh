@@ -14,7 +14,7 @@ lines=$(cat $pangomiss)
 for line in $lines
 do
     echo $line
-    thisgrep=`xzgrep $line metadata.tsv.gz`
+    thisgrep=`xzgrep $line sequences_metadata.txt`
     # If there are more than one match, add to the same line
     var=""
     for element in $thisgrep
