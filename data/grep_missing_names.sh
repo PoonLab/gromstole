@@ -14,7 +14,8 @@ lines=$(cat $pangomiss)
 for line in $lines
 do
     echo $line
-    thisgrep=`xzgrep $line sequences_metadata.txt`
+    sequence_grep=`xzgrep $line sequences_metadata.txt`
+    metadata_grep=`grep $line pangomiss.txt`
     # If there are more than one match, add to the same line
     var=""
     for element in $thisgrep
@@ -22,7 +23,7 @@ do
         var+="${element}"
         var+="," # Not the greatest formatting, but will work
     done
-    echo "$line, $var" >> pangoalts.txt
+    echo -e "$line\t$metadata_grep\t$var" >> pangoalts.txt
 done
 
 head -20 pangoalts.txt
