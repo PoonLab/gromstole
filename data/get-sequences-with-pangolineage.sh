@@ -5,7 +5,7 @@
 # Unzip 
 # (-k means keep original)
 # Unfortunately, awk and seqtk subseq both need unzipped files
-unxz -kv sequences.fasta.xz 
+#unxz -kv sequences.fasta.xz 
 gunzip -kv metadata.tsv.gz
 
 # Get correct rows 
@@ -17,10 +17,11 @@ awk -F '\t' '{ if (($20 != "?") && ($16 == "Homo sapiens"))  { print $1","$20} }
 
 # Find seqs
 echo "Extracting sequences with labelled pangolineages."
-seqtk subseq sequences.fasta metadata_pango-names.txt > sequences_pangolin.fasta
+#seqtk subseq sequences.fasta metadata_pango-names.txt > sequences_pangolin.fasta
+
 
 # Clean up
 echo "Zipping pangolineages and removing unzipped files"
-xz -v sequences_pangolin.fasta # don't keep original
-rm sequences.fasta
+#xz -v sequences_pangolin.fasta # don't keep original
+#rm sequences.fasta
 rm metadata.tsv
