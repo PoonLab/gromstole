@@ -19,7 +19,7 @@ do
 
     # If there are more than one match, add to the same line
     var=""
-    for element in $thisgrep
+    for element in $sequence_grep
     do
         var+="${element}"
         var+="," # Not the greatest formatting, but will work
