@@ -13,9 +13,10 @@ lines=$(cat $pangomiss)
 
 for line in $lines
 do
-    echo $line
     sequence_grep=`xzgrep $line sequences_metadata.txt`
     metadata_grep=`grep $line pangomiss.txt`
+    echo -e "$line\t$metadata_grep"
+
     # If there are more than one match, add to the same line
     var=""
     for element in $thisgrep
