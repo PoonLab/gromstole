@@ -90,6 +90,7 @@ def get_files(curr, paths, ignore_list, callback=None):
     checksums = {stdout[i]: stdout[i - 1] for i in range(1, len(stdout), 2)}
 
     for file in entered:
+        _, filename = os.path.split(file)
         r2 = file.replace('_R1_', '_R2_')
         _, r2_filename = os.path.split(r2)
 
@@ -162,6 +163,9 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
         prefix = filename.split('_')[0]
 
         os.makedirs(os.path.join(os.getcwd(), "results"), exist_ok=True)
+
+        if callback:
+            callback("starting {} from {}".format(prefix, path))
 
         try:
             subprocess.check_call(['python3', 'scripts/minimap2.py', r1, r2,
