@@ -161,6 +161,8 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
         path, filename = os.path.split(r1)
         prefix = filename.split('_')[0]
 
+        os.makedirs(os.path.join(os.getcwd(), "results"), exist_ok=True)
+
         try:
             subprocess.check_call(['python3', 'scripts/minimap2.py', r1, r2,
                                    '-o', 'results',
@@ -251,5 +253,7 @@ if __name__ == '__main__':
     process_files(cursor, args.indir, args.outdir, new_files, binpath=args.binpath, cutabin=args.cutabin,
                   callback=cb.callback)
 
+    cb.callback("All Done!")
+    
     connection.commit()
     connection.close()
