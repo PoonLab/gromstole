@@ -1,5 +1,5 @@
 from datetime import datetime
-from gromstole.scripts.progress_utils import Callback
+from scripts.progress_utils import Callback
 import sqlite3
 import argparse
 import shutil
@@ -68,9 +68,11 @@ def get_files(curr, paths, ignore_list, callback=None):
     :param callback: function, option to print messages to the console
     :return: list, paths to all files that have not been inserted into the database
     """
-    curr.execute("SELECT file FROM RECORDS;")
-    results = [x[0] for x in curr.fetchall()]
+    curr.execute("SELECT file, checksum FROM RECORDS;")
+    results = {x[0]: x[1] for x in curr.fetchall()}
+
     unentered = []
+    entered = []
     ignore = []
     for file in paths:
         if ignore_file(file, ignore_list):
@@ -79,6 +81,23 @@ def get_files(curr, paths, ignore_list, callback=None):
         path, filename = os.path.split(file)
         if filename not in results:
             unentered.append(file)
+        else:
+            entered.append(file)
+
+    # Check if R1 or R2 files have changed since the last run
+    r2_files = [file.replace('_R1_', '_R2_') for file in entered]
+    stdout = (subprocess.getoutput("sha1sum {} {}".format(' '.join(entered), ' '.join(r2_files)))).split()
+    checksums = {stdout[i]: stdout[i - 1] for i in range(1, len(stdout), 2)}
+
+    for file in entered:
+        r2 = file.replace('_R1_', '_R2_')
+        _, r2_filename = os.path.split(r2)
+
+        if results[filename] != checksums[file] or results[r2_filename] != checksums[r2]:
+            unentered.append(file)
+
+            # Delete entry from the table to avoid duplicates
+            curr.execute("DELETE from RECORDS WHERE file=? OR file=? ;", [filename, r2_filename])
 
     if len(ignore) > 0 and callback:
         callback("Ignoring {} files".format(len(ignore)))
@@ -175,15 +194,20 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
                 callback("Output file missing for {}".format(prefix), level="ERROR")
             continue
 
+        # Remove any files from a prior run in the results directory
+        outfiles = glob.glob("{}/**/{}.*".format(result_dir, prefix), recursive=True)
+        for outfile in outfiles:
+            os.remove(outfile)
+
         # Rename files with checksum and copy files to the results directory
         for suffix in suffixes:
             filepath = "results/{}.{}".format(prefix, suffix)
             stdout = subprocess.getoutput("sha1sum {}".format(filepath))
-            checksum = stdout.split(' ')[0]
+            checksum = stdout.split(' ')[0][:10]
             new_filepath = "results/{}.{}.{}".format(prefix, checksum, suffix)
             os.rename(filepath, new_filepath)
             shutil.copy(new_filepath, result_dir)
-            shutil.move(new_filepath, "results/{}".format(prefix))
+            shutil.move(new_filepath, "results/{}/{}.{}.{}".format(prefix, prefix, checksum, suffix))
 
         # Insert file data to the database
         insert_record(curr, r1)
