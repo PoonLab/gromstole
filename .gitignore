@@ -16,6 +16,7 @@ data/tile-coords.csv
 # Spreadsheets
 *\.csv
 !data/maps/locations.csv
+!data/omicron_v_pango.csv
 *\.tsv
 !data/nCoV-2019.tsv
 
