@@ -1,11 +1,6 @@
 library(here)
 library(jsonlite)
 
-ohmy <- read.csv(here("reports",
-    "omicron-mutations.csv"))
-
-head(ohmy)
-
 pangodiffs <- readLines(here("data", "pangodiffs.json")) 
 
 pd <- jsonlite::fromJSON(pangodiffs)
