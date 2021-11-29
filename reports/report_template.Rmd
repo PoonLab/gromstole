@@ -61,19 +61,15 @@ rownames(omicron_mutations_used) = NULL
 knitr::kable(omicron_mutations_used)
 ```
 
-<!-- Selected Mutations -->
-<!-- -------------------------------------------------------- -->
 
-<!-- ### Below is a list of mutations selected for analysis. Mutations had a high frequency in Omicron (>0.90) and low frequency on other lineages (<1e-4): -->
-
-<!-- ```{r, echo=FALSE} -->
-<!-- selected_mutations <- frequencies[frequencies$omicron_freq > 0.9 & frequencies$all_freq < 1e-3,] -->
-<!-- colnames(selected_mutations) <- c("Frequency in Omicron", "Frequency in All") -->
-<!-- selected_mutations <- selected_mutations[order(selected_mutations$`Frequency in Omicron`, decreasing = T),] -->
-<!-- print(selected_mutations) -->
-<!-- ``` -->
+# Omicron Mutations in Wastewater Samples
 
 
+## Omicron Mutation Coverage
+
+
+
+## Omicron Mutations Discovered
 
 
 
