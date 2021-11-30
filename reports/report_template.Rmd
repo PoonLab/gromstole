@@ -31,6 +31,8 @@ library(ggplot2)
 
 * The request was reviewed and accepted on November 24, designating the new lineage as B.1.1.529.
 
+* On November 26, the World Health Organization reclassified B.1.1.529 as a 'variant of concern' with designation 'Omicron'.
+
 * On November 27, the CoV-lineages team uploaded a `constellation' file, describing a set of mutations for classifying genomes into the newly defined lineage.
 
 
