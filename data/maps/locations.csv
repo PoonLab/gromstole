@@ -1,0 +1,32 @@
+"Location ID","Location name",lat,lon,note,region
+"GTA1 York","York Sewershed - Leslie Street PS",43.8126254,-79.3756812,,York
+"GTA2 York","York Sewershed - Nemarket PS",44.0729553,-79.4554465,,York
+"GTA3 York","York Sewershed - Humber AMF pumping station",43.7540649,-79.6275186,"uncertain location",York
+"GTA4 York","York Sewershed - Kleinburg WWTP ( This location may change to another one in York soon - TBC )",43.8357338,-79.6324867,,York
+"GTA5 York","York Sewershed - Warden 407",43.8452348,-79.3327647,"intersection of warden rd and the 407 highway",York
+"GTA6 Peel","Clarkson South-Peel Water Pollution Control Plant",43.4955249,-79.6212253,,Peel
+"GTA7 Peel","G. E. Booth (Lakeview) Wastewater Treatment Plant",43.5787383,-79.5499147,,Peel
+"GTA8 Toronto","Highland Creek (Scarborough) Water Pollution Control Plant",43.7668326,-79.1528893,,Scarborough
+"GTA9 Toronto","Humber (Etobicoke) Water Pollution Control Plant",43.6315936,-79.4835256,,Etobicoke
+"GTA10 Toronto","Main (Toronto-Ashbridges Bay) Water Pollution Control Plant",43.6572867,-79.3228905,,Toronto
+"GTA11 Toronto","North Toronto Treatment Plant",43.6996034,-79.3578341,,Toronto
+"Niagara 1","Fort Erie Wastewater Treatment Plant",42.9387765,-78.9283444,,Niagara
+"Niagara 2","Niagara Falls-Stamford Wastewater Treatment Plant",43.1246125,-79.1174101,,Niagara
+"Niagara 3","Queenston WWTP",43.1677357,-79.0660041,"Center of Queenston",Niagara
+Detroit,"Great Lakes Water Authority - West Jefferson - NIEA, O-NWI and DRI-JEFF (Detroit)",42.2840107,-83.1256779,,Detroit
+"Windsor 1","Little River Pollution Control Plant",42.3305042,-82.9295072,,Windsor
+"Windsor 2","Lou Romano Water Reclamation Plant",42.2835312,-83.0872335,,Windsor
+Ottawa,"Robert Pickard Env Centre Water Pollution Control Plant",45.4619826,-75.5925283,,Ottawa
+Cornwall,"Cornwall Wastewater Treatment Plant",45.0296057,-74.6807027,,Cornwall
+"GTAA Terminal 1","Person Airport Terminal 1 pumping Station",43.6807551,-79.612511,,Pearson
+"GTAA Terminal 3","Pearson Airport Terminal 3 Pumping Station",43.6853483,-79.6212937,,Pearson
+"GTAA Aircraft Sewage","Pearson Airport Aircraft Lavatory Sewage Disposal Building",43.677775,-79.6258064,,Pearson
+"Niagara casino","Niagara Sewershed location downstream from casinos",,,"Location not determined",Niagara
+"ONRoute 1 (Cambridge)","On-Route Cambridge South",43.434107,-80.2476931,,Cambridge
+"ONRoute 2","On-Route Woodstock",43.0665308,-80.7996834,,Woodstock
+"ONRoute 3","On-Route Ingersoll Highway Service Centre",43.0577632,-80.8160906,,Ingersoll
+"ONRoute 4","On-Route Dutton or Tillbury (TBD)",,,"TBD",TBD
+"UW","University of Waterloo",43.4722854,-80.5470463,,Waterloo
+"UWO","University of Western Ontario",43.009601,-81.2759223,,London
+"UWindsor","University of Windsor",42.3043181,-83.0682277,,Windsor
+"UofG","University of Guelph",43.5327256,-80.2283691,,Guelph
