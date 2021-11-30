@@ -1,10 +1,10 @@
 ---
 title: "Southern Ontario Wastewater Analysis Report"
-author: "Poon Lab"
+author: "Art Poon, Devan Becker, Gopi Gugan and Erin Brintnell"
 date: "`r Sys.Date()`"
 always_allow_html: true
 output: 
-  pdf_document: default
+  tufte::tufte_handout: default
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
@@ -25,11 +25,25 @@ library(ggplot2)
 <!-- source(here("scripts", "plot.R")) # won't run - files don't exist on my machine -->
 <!-- ``` -->
 
+# Background
+
+* On November 23, 2021, a request for a new lineage designation was submitted to the CoV-lineages PANGO designation GitHub site, describing a new sub-lineage of B.1.1 sampled in Botswana, Hong Kong and South Africa with an excessive number of mutations.
+
+* The request was reviewed and accepted on November 24, designating the new lineage as B.1.1.529.
+
+* On November 27, the CoV-lineages team uploaded a `constellation' file, describing a set of mutations for classifying genomes into the newly defined lineage.
 
 
-# Analysis of Omicron Mutations
+# Analysis of Omicron mutations
 
-Add some text here about analysis - @Devin do you have thoughts on what should go in here?
+We had the following objectives:
+
+1. identify common mutations in lineage B.1.1.529 (Omicron) relative to the SARS-CoV-2 reference genome sequence (WH1);
+
+2. determine which of these common mutations are unique to B.1.1.529, in comparison to all other defined lineages;
+
+3. retrospectively screen all available wastewater sample data sets for the presence of these mutations.
+
 
 
 ## Prevalence of Omicron Mutations
