@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.23 (TeX Live 2021/W32TeX) (preloaded format=pdflatex 2021.11.30)  30 NOV 2021 11:01
+This is pdfTeX, Version 3.141592653-2.6-1.40.23 (TeX Live 2021/W32TeX) (preloaded format=pdflatex 2021.11.30)  30 NOV 2021 11:03
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -823,7 +823,7 @@ var/fonts/pk/ljfour/jknappen/ec/ecrm1000.600pk> <c:/Users/ebrin/AppData/Roaming
 AppData/Roaming/TinyTeX/texmf-var/fonts/pk/ljfour/jknappen/ec/ecti1200.600pk> <
 c:/Users/ebrin/AppData/Roaming/TinyTeX/texmf-var/fonts/pk/ljfour/jknappen/ec/ec
 ti1440.600pk>
-Output written on report_template.pdf (4 pages, 79990 bytes).
+Output written on report_template.pdf (4 pages, 80000 bytes).
 PDF statistics:
  242 PDF objects out of 1000 (max. 8388607)
  75 compressed objects within 1 object stream
