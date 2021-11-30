@@ -95,7 +95,7 @@ Many wastewater samples had very low coverage (**Figure 2**), however there was 
 
 
 ```{r, echo=FALSE}
-knitr::include_graphics("coveragemaps.pdf")
+knitr::include_graphics("coverage.pdf")
 ```
 
 **Figure 2** Coverage of wastewater samples across the SARS-CoV-2 genome. 
@@ -107,8 +107,7 @@ knitr::include_graphics("coveragemaps.pdf")
 knitr::include_graphics("detection.pdf")
 ```
 
-<!-- Art please add a better figure caption here -->
-**Figure 3** Illustration of the frequency of selected Omicron mutations in wastewater samples. 
+**Figure 3** Illustration of the frequency of selected Omicron mutations in wastewater samples. The size of the bubble represents the number of reads containing that mutation in a particular sample. The colours are the official colours of Western, Guelph, and Waterloo, respectively, and represent the lab that sequenced the data (not the location of the sample - this data is currently unavailable to us). The squares represent mutations that were not present in the samples \emph{OR} occurred in a location where the sample had zero coverage, so it would not be possible to tell whether these mutations were not present or merely not sequenced. The size of the square represents the log of the coverage (smallest squares have lowest coverage).
 
 
 

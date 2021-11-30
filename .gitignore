@@ -27,3 +27,6 @@ data/tile-coords.csv
 
 # Saved dictionaries
 *\.json
+
+# Working folder
+working/*
