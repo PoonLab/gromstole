@@ -4,6 +4,8 @@ author: "Art Poon, Devan Becker, Gopi Gugan and Erin Brintnell"
 date: "`r Sys.Date()`"
 always_allow_html: true
 output: 
+  pdf_document:
+    toc: false
   tufte::tufte_handout: default
   flexdashboard::flex_dashboard:
     orientation: columns
@@ -15,13 +17,21 @@ library("here") # All paths relative to the directory with a .git folder
     # here("scripts", "plots.R") will always find plots.R,
     # no matter where this rmd's working directory is
 library(flexdashboard)
+library(dplyr)
+library(tidyr)
+library(knitr)
 library(ggplot2)
 
-
-omicron_v_pango = read.csv("compare-devan-art.csv")
-omicron_v_pango$pango_freq = omicron_v_pango$pango_matches/220242
-omicron_v_pango$`In Downstream Analysis` = omicron_v_pango$freq > 0.95 & omicron_v_pango$pango_freq < 0.05
-omicron_v_pango$downstream = omicron_v_pango$`In Downstream Analysis`
+omicron <- read.csv(here("reports", "omicron-mutations.csv")) %>%
+  select(type, pos, alt, mutation) %>%
+  #mutate(pos = pos-1) %>% 
+  unite(label, type, pos, alt, sep = "|")
+omicron_v_pango = read.csv(here("reports", "compare-devan-art.csv")) %>%
+  mutate(pango_freq = pango_matches/220242,
+    downstream = freq > 0.95 & pango_freq < 0.05) %>% 
+  select(freq, pango_freq, label, downstream) %>%
+  left_join(omicron, by = "label") %>% 
+  mutate(mutation = ifelse(mutation == "None", label, mutation))
 ```
 
 
@@ -35,7 +45,7 @@ omicron_v_pango$downstream = omicron_v_pango$`In Downstream Analysis`
 
 * On November 23, 2021, a request for a new lineage designation was submitted to the CoV-lineages PANGO designation GitHub site, describing a new sub-lineage of B.1.1 sampled in Botswana, Hong Kong and South Africa with an excessive number of mutations.
 
-* The request was reviewed and accepted on November 24, designating the new lineage as B.1.1.529.
+* The request was reviewed and accepted on November 24, designating the new lineage as B.1.1.529, designated "Omicron".
 
 * On November 27, the CoV-lineages team uploaded a `constellation' file, describing a set of mutations for classifying genomes into the newly defined lineage.
 
@@ -59,12 +69,29 @@ There were `r nrow(omicron_v_pango)` mutations present in the Omicron genomes (n
 
 
 ```{r, echo = FALSE,fig.height=4.5}
-plot <- ggplot(data = omicron_v_pango, mapping = aes(x = freq, y = pango_freq + 0.000005, label = mutation, color = `In Downstream Analysis`)) + geom_point() + xlab("Frequency in Omicron") + ylab("Frequency in Pango Lineages") + scale_y_log10()+ geom_jitter() + theme(legend.position="bottom", panel.background = element_blank(),  panel.grid.major = element_blank(),
-panel.grid.minor = element_line(colour = "grey"), axis.line = element_line(colour = "black"), text = element_text(size = 8))+scale_color_manual(values=c("#999999", "#E69F00"))
-plot
+ggplot(data = omicron_v_pango, 
+      mapping = aes(x = freq, y = pango_freq + 0.000005, 
+        label = mutation, colour = downstream)) + 
+    geom_point() + 
+    labs(x = "Frequency in Omicron", y = "Frequency in Pango Lineages",
+      colour = "UsedIn Downstream Analysis") +
+    scale_y_log10() + 
+    geom_jitter() + 
+    theme(legend.position="bottom", 
+      panel.background = element_blank(),  
+      panel.grid.major = element_blank(), 
+      panel.grid.minor = element_line(colour = "grey"), 
+      axis.line = element_line(colour = "black"), 
+      text = element_text(size = 8)) +
+    scale_color_manual(values=c("#999999", "#E69F00")) +
+    annotate("line", x = c(0.95, 0.95), y = c(0, 1), 
+      col = "#E69F00", linetype = 2) +
+    annotate("line", x = c(0, 1), y = c(0.05, 0.05), 
+      col = "#E69F00", linetype = 2)
+
 ```
 
-**Figure 1** Illustration of `r nrow(omicron_v_pango)` mutations found throughout 77 Omnicron genomes. Mutations used in downstream analysis were present in >95\% of Omicron genomes and <5\% of all other Pango lineages.
+**Figure 1** Illustration of `r nrow(omicron_v_pango)` mutations found throughout 77 Omnicron genomes. Mutations used in downstream analysis were present in >95\% of Omicron genomes and <5\% of all other Pango lineages. These numbers were chosen arbitrarily and will be explored in further studies.
 
 
 
@@ -74,12 +101,11 @@ plot
 
 
 ```{r, echo=FALSE}
-omicron_mutations_used = omicron_v_pango[omicron_v_pango$downstream,]
-omicron_mutations_used = omicron_mutations_used[,c(-1,-4, -5, -6, -7,-8,-9, -11,-12)]
-colnames(omicron_mutations_used) = c("Mutation", "Frequency in Omicron", "Frequency in Pango Lineages")
-omicron_mutations_used = omicron_mutations_used[order(omicron_mutations_used$`Frequency in Omicron`,decreasing = T),]
-rownames(omicron_mutations_used) = NULL
-knitr::kable(omicron_mutations_used)
+omicron_v_pango %>%
+  filter(downstream) %>% 
+  select(mutation, freq, pango_freq) %>%
+  arrange(pango_freq) %>% 
+  kable(col.names = c("Mutation", "Frequency in Omicron", "Frequency in Pango lineages"))
 ```
 
 
@@ -93,25 +119,32 @@ Many wastewater samples had very low coverage (**Figure 2**), however there was 
 
 
 
+\clearpage
+\includegraphics[width=0.75\textwidth]{coverage.pdf}
 
-```{r, echo=FALSE}
-knitr::include_graphics("coverage.pdf")
-```
-
-**Figure 2** Coverage of wastewater samples across the SARS-CoV-2 genome. 
+**Figure 2** Coverage of wastewater samples across the SARS-CoV-2 genome. Low coverage means that we cannot tell if the mutations were not present or were simply not sequenced.
 
 
 
+\clearpage
 
 ```{r, echo=FALSE}
 knitr::include_graphics("detection.pdf")
 ```
 
-**Figure 3** Illustration of the frequency of selected Omicron mutations in wastewater samples. The size of the bubble represents the number of reads containing that mutation in a particular sample. The colours are the official colours of Western, Guelph, and Waterloo, respectively, and represent the lab that sequenced the data (not the location of the sample - this data is currently unavailable to us). The squares represent mutations that were not present in the samples \emph{OR} occurred in a location where the sample had zero coverage, so it would not be possible to tell whether these mutations were not present or merely not sequenced. The size of the square represents the log of the coverage (smallest squares have lowest coverage).
+**Figure 3** Illustration of the frequency of selected Omicron mutations in wastewater samples. The x axis represents the number number of reads in a sample where that frequency was observed (e.g. in 3 out of 200 reads in a particular from Guelph). The size of the bubble represents the number of reads containing that mutation in a particular sample. The colours are the official colours of Western, Guelph, and Waterloo, respectively, and represent the lab that sequenced the data (not the location of the sample - this data is currently unavailable to us). The squares represent mutations that were not present in the samples \emph{OR} occurred in a location where the sample had zero coverage, so it would not be possible to tell whether these mutations were not present or merely not sequenced. The size of the square represents the log of the coverage (smallest squares have lowest coverage).
 
 
-
+\clearpage
 # Concluding Remarks
+
+- We have identified mutations that are common in Omicron but rare in all other known variants, and (perhaps overenthusiastically) labelled these as "unique" mutations. 
+  - Note that these mutations are likely present in unsequenced genomes; there is a lot of unsampled diversity out there. 
+  - Even if a mutation is completely unique to Omicron compared to all known sequences, this does not imply that it's presence is a guarantee that we've observed Omicron.
+  - Even if there existed a mutation that was completely unique to Omicron and not even present in any of the unsampled genomes, our observation of that mutation is subject to sequencing error.
+- These "unique" mutations appear in a small number of our samples, and in very small numbers.
+  - This is evidence that Omicron may present, but it is far from being conclusive proof.
+- To make conclusions from our data, we would like to observe multiple "unique" mutations in one sample, and have this confirmed by another lab sequencing the same sample. 
 
 <!-- Guelph Sample (naming convention?) -->
 <!-- ========== -->
