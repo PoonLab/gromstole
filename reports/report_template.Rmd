@@ -1,0 +1,130 @@
+---
+title: "Southern Ontario Wastewater Analysis Report"
+author: "Poon Lab"
+date: "`r Sys.Date()`"
+always_allow_html: true
+output: 
+  pdf_document: default
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library("here") # All paths relative to the directory with a .git folder
+    # here("scripts", "plots.R") will always find plots.R,
+    # no matter where this rmd's working directory is
+library(flexdashboard)
+library(ggplot2)
+```
+
+
+<!-- ## Sourcing existing lineages -->
+
+<!-- ```{r sourceascript, eval=FALSE} -->
+<!-- source(here("scripts", "plot.R")) # won't run - files don't exist on my machine -->
+<!-- ``` -->
+
+
+
+# Analysis of Omicron Mutations
+
+Add some text here about analysis - @Devin do you have thoughts on what should go in here?
+
+
+## Prevalence of Omicron Mutations
+
+```{r, echo = FALSE}
+omicron_v_pango = read.csv("compare-devan-art.csv")
+omicron_v_pango$pango_freq = omicron_v_pango$pango_matches/220242
+omicron_v_pango$`Used in Downstream Analysis` = omicron_v_pango$freq > 0.95 & omicron_v_pango$pango_freq < 0.05
+omicron_v_pango$downstream = omicron_v_pango$`Used in Downstream Analysis`
+
+plot <- ggplot(data = omicron_v_pango, mapping = aes(x = freq, y = pango_freq + 0.000005, label = mutation, color = `Used in Downstream Analysis`)) + geom_point() + xlab("Frequency in Omicron") + ylab("Frequency in Pango Lineages") + scale_y_log10()+ geom_jitter()
+plot
+```
+
+**Figure 1** Illustration of `r nrow(omicron_v_pango)` mutations found throughout 77 Omnicron genomes. Mutations used in downstream analysis were present in >95\% of Omicron genomes and <5\% of all other Pango lineages.
+
+From the `r nrow(omicron_v_pango)` mutations, we selected mutations present in >95\% of Omicron genomes and <5\% of all other Pango lineages for further downstream analysis (n=`r sum(omicron_v_pango$downstream)`) on existing data files. These mutations are shown in Table 1.
+
+**Table 1** Mutations selected from Omicron mutations for downstream analysis of fastq files.
+
+
+
+```{r, echo=FALSE}
+omicron_mutations_used = omicron_v_pango[omicron_v_pango$downstream,]
+omicron_mutations_used = omicron_mutations_used[,c(-1,-4, -5, -6, -7,-8,-9, -11,-12)]
+colnames(omicron_mutations_used) = c("Mutation", "Frequency in Omicron", "Frequency in Pango Lineages")
+omicron_mutations_used = omicron_mutations_used[order(omicron_mutations_used$`Frequency in Omicron`,decreasing = T),]
+rownames(omicron_mutations_used) = NULL
+knitr::kable(omicron_mutations_used)
+```
+
+
+# Omicron Mutations in Wastewater Samples
+
+
+## Omicron Mutation Coverage
+
+
+
+## Omicron Mutations Discovered
+
+
+
+
+<!-- Guelph Sample (naming convention?) -->
+<!-- ========== -->
+
+
+<!-- {data-width=250} -->
+<!-- -------------------------------------------------- -->
+
+<!-- ### Data Information -->
+
+<!-- ```{r, echo=FALSE} -->
+<!-- as.table(matrix(c("Collection Date", "SOme date", "collection location", "some location"), ncol = 2, byrow = T)) -->
+<!-- ``` -->
+
+
+
+
+<!-- -------------------------------------------------- -->
+
+<!-- ### Reads Information -->
+
+
+
+<!-- ![](sequence_reads_image.png) -->
+
+
+<!-- ### Sequence Reads Analyzed -->
+<!-- ```{r, echo=FALSE} -->
+<!-- valueBox(400,icon = "ion-arrow-graph-up-right") -->
+<!-- ``` -->
+
+
+<!-- ### Mean Depth of Coverage -->
+
+<!-- ```{r, echo=FALSE} -->
+<!-- valueBox(500, icon = "ion-stats-bars") -->
+<!-- ``` -->
+
+
+
+<!-- Data Analysis -->
+<!-- -------------------------------------------------- -->
+
+<!-- ### Variants of Concern -->
+
+
+<!-- Here we can add additional information currently I have variants of concern that have been found in a bar chart in their quantity -->
+
+<!-- ```{r, echo=FALSE} -->
+<!-- variants <- c("B.1.1.7","B.1.1.59", "A.1", "A.1", "A.1", "B.1.1.7") -->
+<!-- variants <- data.frame(table(variants)) -->
+<!-- ggplot(variants, aes(variants, Freq)) + geom_col() -->
+<!-- ``` -->
+
+
