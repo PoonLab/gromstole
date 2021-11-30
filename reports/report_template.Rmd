@@ -16,6 +16,7 @@ library("here") # All paths relative to the directory with a .git folder
     # no matter where this rmd's working directory is
 library(flexdashboard)
 library(ggplot2)
+library(xfun)
 ```
 
 
@@ -44,24 +45,31 @@ We had the following objectives:
 
 3. retrospectively screen all available wastewater sample data sets for the presence of these mutations.
 
-
-
 ## Prevalence of Omicron Mutations
 
-```{r, echo = FALSE}
+```{r, echo = FALSE,fig.height=4.5}
 omicron_v_pango = read.csv("compare-devan-art.csv")
 omicron_v_pango$pango_freq = omicron_v_pango$pango_matches/220242
-omicron_v_pango$`Used in Downstream Analysis` = omicron_v_pango$freq > 0.95 & omicron_v_pango$pango_freq < 0.05
-omicron_v_pango$downstream = omicron_v_pango$`Used in Downstream Analysis`
+omicron_v_pango$`In Downstream Analysis` = omicron_v_pango$freq > 0.95 & omicron_v_pango$pango_freq < 0.05
+omicron_v_pango$downstream = omicron_v_pango$`In Downstream Analysis`
 
-plot <- ggplot(data = omicron_v_pango, mapping = aes(x = freq, y = pango_freq + 0.000005, label = mutation, color = `Used in Downstream Analysis`)) + geom_point() + xlab("Frequency in Omicron") + ylab("Frequency in Pango Lineages") + scale_y_log10()+ geom_jitter()
+plot <- ggplot(data = omicron_v_pango, mapping = aes(x = freq, y = pango_freq + 0.000005, label = mutation, color = `In Downstream Analysis`)) + geom_point() + xlab("Frequency in Omicron") + ylab("Frequency in Pango Lineages") + scale_y_log10()+ geom_jitter() + theme(legend.position="bottom")
 plot
 ```
 
 **Figure 1** Illustration of `r nrow(omicron_v_pango)` mutations found throughout 77 Omnicron genomes. Mutations used in downstream analysis were present in >95\% of Omicron genomes and <5\% of all other Pango lineages.
 
+&nbsp;
+
+
+
 From the `r nrow(omicron_v_pango)` mutations, we selected mutations present in >95\% of Omicron genomes and <5\% of all other Pango lineages for further downstream analysis (n=`r sum(omicron_v_pango$downstream)`) on existing data files. These mutations are shown in Table 1.
 
+
+&nbsp;
+
+
+\pagebreak
 **Table 1** Mutations selected from Omicron mutations for downstream analysis of fastq files.
 
 
@@ -76,16 +84,20 @@ knitr::kable(omicron_mutations_used)
 ```
 
 
-# Omicron Mutations in Wastewater Samples
+
+## Omicron Mutation Coverage in Wastewater Samples
 
 
-## Omicron Mutation Coverage
+## Omicron Mutations Discovered in Wastewater Samples
 
 
+```{r, echo=FALSE}
+knitr::include_graphics("detection.pdf")
+```
 
-## Omicron Mutations Discovered
+**Figure 3** Illustration of the frequency of selected Omicron mutations in wastewater samples. 
 
-
+&nbsp;
 
 
 <!-- Guelph Sample (naming convention?) -->
