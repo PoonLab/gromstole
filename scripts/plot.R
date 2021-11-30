@@ -1,4 +1,6 @@
-setwd('~/git/wastewater/results/')
+#setwd('~/git/wastewater/results/')
+#setwd('~/git/gromstole/results/western/211028_M07822_0001_000000000-K3FK/')
+setwd('~/git/gromstole/results/waterloo/run3/')
 
 mapfiles <- Sys.glob('*.mapped.csv')
 covfiles <- Sys.glob('*.coverage.csv')
@@ -31,9 +33,9 @@ draw.sc2 <- function() {
 }
 
 # coverage
-res <- 300
-png(file="~/Desktop/coverage.png", width=11*res, height=8*res, res=res)
-par(mfrow=c(3,2), mar=c(5,5,2,1))
+res <- 150
+png(file="coverage.png", width=6*res, height=6*res, res=res)
+par(mfrow=c(2,1), mar=c(5,5,2,1))
 for (i in 1:length(results)) {
   df <- results[[i]]
   df[,1] <- df[,1] + 1  # shift from zero-index
@@ -76,10 +78,12 @@ alpha <- c('aa:orf1a:T1001I', 'aa:orf1a:A1708D', 'aa:orf1a:I2230T',
            'aa:orf8:R52I', 'aa:orf8:Y73C', 'aa:N:D3H', 'aa:N:D3V', 'aa:N:D3E', 
            'aa:N:R203K', 'aa:N:G204R', 'aa:N:S235F', 'del:28271:1')
 
+par(mfrow=c(2,2), mar=c(5,5,2,1))
 for (df in results) {
   temp <- df[df$coverage > 100, ]
   foo <- temp[is.element(temp$mutation, delta),]
-  barplot(foo$frequency)
+  if (nrow(foo) == 0) { next }
+  barplot(foo$frequency, horiz=T, names.arg=foo$mutation, las=1, xlim=c(0,1))
 }
 
 
