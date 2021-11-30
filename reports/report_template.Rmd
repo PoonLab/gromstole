@@ -4,7 +4,7 @@ author: "Art Poon, Devan Becker, Gopi Gugan and Erin Brintnell"
 date: "`r Sys.Date()`"
 always_allow_html: true
 output: 
-  pdf_document: default
+  tufte::tufte_handout: default
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
@@ -45,24 +45,33 @@ We have the following objectives:
 3. retrospectively screen all available wastewater sample data sets for the presence of these mutations.
 
 
-
 ## Prevalence of Omicron Mutations
 
-```{r, echo = FALSE}
+```{r, echo = FALSE,fig.height=4.5}
 omicron_v_pango = read.csv("compare-devan-art.csv")
 omicron_v_pango$pango_freq = omicron_v_pango$pango_matches/220242
-omicron_v_pango$`Used in Downstream Analysis` = omicron_v_pango$freq > 0.95 & omicron_v_pango$pango_freq < 0.05
-omicron_v_pango$downstream = omicron_v_pango$`Used in Downstream Analysis`
+omicron_v_pango$`In Downstream Analysis` = omicron_v_pango$freq > 0.95 & omicron_v_pango$pango_freq < 0.05
+omicron_v_pango$downstream = omicron_v_pango$`In Downstream Analysis`
 
-plot <- ggplot(data = omicron_v_pango, mapping = aes(x = freq, y = pango_freq + 0.000005, label = mutation, color = `Used in Downstream Analysis`)) + geom_point() + xlab("Frequency in Omicron") + ylab("Frequency in Pango Lineages") + scale_y_log10()+ geom_jitter()
+plot <- ggplot(data = omicron_v_pango, mapping = aes(x = freq, y = pango_freq + 0.000005, label = mutation, color = `In Downstream Analysis`)) + geom_point() + xlab("Frequency in Omicron") + ylab("Frequency in Pango Lineages") + scale_y_log10()+ geom_jitter() + theme(legend.position="bottom", panel.background = element_blank(),  panel.grid.major = element_blank(),
+panel.grid.minor = element_line(colour = "grey"), axis.line = element_line(colour = "black"), text = element_text(size = 8))+scale_color_manual(values=c("#999999", "#E69F00"))
 plot
 ```
 
 **Figure 1** Illustration of `r nrow(omicron_v_pango)` mutations found throughout 77 Omnicron genomes. Mutations used in downstream analysis were present in >95\% of Omicron genomes and <5\% of all other Pango lineages.
 
+&nbsp;
+
+
+
 From the `r nrow(omicron_v_pango)` mutations, we selected mutations present in >95\% of Omicron genomes and <5\% of all other Pango lineages for further downstream analysis (n=`r sum(omicron_v_pango$downstream)`) on existing data files. These mutations are shown in Table 1.
 
-**Table 1** Mutations selected from Omicron mutations for downstream analysis of fastq files.
+
+&nbsp;
+
+
+\pagebreak
+**Table 1** Mutations selected from Omicron mutations for downstream analysis of wastewater samples.
 
 
 
@@ -76,9 +85,21 @@ knitr::kable(omicron_mutations_used)
 ```
 
 
-# Omicron Mutations in Wastewater Samples
 
-![](detection.pdf)
+## Omicron Mutation Coverage in Wastewater Samples
+
+
+## Omicron Mutations Discovered in Wastewater Samples
+
+
+```{r, echo=FALSE}
+knitr::include_graphics("detection.pdf")
+```
+
+**Figure 3** Illustration of the frequency of selected Omicron mutations in wastewater samples. 
+
+&nbsp;
+
 
 <!-- Guelph Sample (naming convention?) -->
 <!-- ========== -->
@@ -132,5 +153,4 @@ knitr::kable(omicron_mutations_used)
 <!-- variants <- data.frame(table(variants)) -->
 <!-- ggplot(variants, aes(variants, Freq)) + geom_col() -->
 <!-- ``` -->
-
 
