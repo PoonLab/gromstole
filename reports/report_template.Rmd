@@ -4,7 +4,7 @@ author: "Art Poon, Devan Becker, Gopi Gugan and Erin Brintnell"
 date: "`r Sys.Date()`"
 always_allow_html: true
 output: 
-  tufte::tufte_handout: default
+  pdf_document: default
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
@@ -36,7 +36,7 @@ library(ggplot2)
 
 # Analysis of Omicron mutations
 
-We had the following objectives:
+We have the following objectives:
 
 1. identify common mutations in lineage B.1.1.529 (Omicron) relative to the SARS-CoV-2 reference genome sequence (WH1);
 
@@ -78,15 +78,7 @@ knitr::kable(omicron_mutations_used)
 
 # Omicron Mutations in Wastewater Samples
 
-
-## Omicron Mutation Coverage
-
-
-
-## Omicron Mutations Discovered
-
-
-
+![](detection.pdf)
 
 <!-- Guelph Sample (naming convention?) -->
 <!-- ========== -->
