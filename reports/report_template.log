@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.23 (TeX Live 2021/W32TeX) (preloaded format=pdflatex 2021.11.30)  30 NOV 2021 12:34
+This is pdfTeX, Version 3.141592653-2.6-1.40.23 (TeX Live 2021/W32TeX) (preloaded format=pdflatex 2021.11.30)  30 NOV 2021 12:45
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -793,13 +793,29 @@ set up.
 This message occurred on input line 201.
 
 [3]
-<detection.pdf, id=54, 433.62pt x 433.62pt>
+<coveragemaps.pdf, id=54, 867.24pt x 1445.4pt>
+File: coveragemaps.pdf Graphic file (type pdf)
+<use coveragemaps.pdf>
+Package pdftex.def Info: coveragemaps.pdf  used on input line 202.
+(pdftex.def)             Requested size: 311.99443pt x 519.99072pt.
+
+Overfull \hbox (11.99443pt too wide) in paragraph at lines 202--203
+[][]  
+ []
+
+
+Class tufte-handout Warning: Proper spacing of small-caps letters has not been 
+set up.
+This message occurred on input line 207.
+
+[4 <./coveragemaps.pdf>]
+<detection.pdf, id=64, 433.62pt x 433.62pt>
 File: detection.pdf Graphic file (type pdf)
 <use detection.pdf>
-Package pdftex.def Info: detection.pdf  used on input line 202.
+Package pdftex.def Info: detection.pdf  used on input line 207.
 (pdftex.def)             Requested size: 312.01428pt x 312.01428pt.
 
-Overfull \hbox (12.01428pt too wide) in paragraph at lines 202--203
+Overfull \hbox (12.01428pt too wide) in paragraph at lines 207--208
 [][]  
  []
 
@@ -811,17 +827,17 @@ Package bibentry Warning: You have used \nobibliography*
 
 Class tufte-handout Warning: Proper spacing of small-caps letters has not been 
 set up.
-This message occurred on input line 212.
+This message occurred on input line 217.
 
-[4 <./detection.pdf>] (./report_template.aux)
+[5 <./detection.pdf>] (./report_template.aux)
 Package rerunfilecheck Info: File `report_template.out' has not changed.
 (rerunfilecheck)             Checksum: 1067733D7342A5203E6E09E6F93F1AA7;736.
  ) 
 Here is how much of TeX's memory you used:
- 13302 strings out of 480313
- 214031 string characters out of 5895779
+ 13311 strings out of 480313
+ 214228 string characters out of 5895779
  525850 words of memory out of 5000000
- 30912 multiletter control sequences out of 15000+600000
+ 30920 multiletter control sequences out of 15000+600000
  409771 words of font info for 37 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  81i,12n,80p,358b,332s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -833,10 +849,10 @@ var/fonts/pk/ljfour/jknappen/ec/ecrm1000.600pk> <c:/Users/ebrin/AppData/Roaming
 AppData/Roaming/TinyTeX/texmf-var/fonts/pk/ljfour/jknappen/ec/ecti1200.600pk> <
 c:/Users/ebrin/AppData/Roaming/TinyTeX/texmf-var/fonts/pk/ljfour/jknappen/ec/ec
 ti1440.600pk>
-Output written on report_template.pdf (4 pages, 78693 bytes).
+Output written on report_template.pdf (5 pages, 2061446 bytes).
 PDF statistics:
- 240 PDF objects out of 1000 (max. 8388607)
- 81 compressed objects within 1 object stream
- 19 named destinations out of 1000 (max. 500000)
- 43 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 250 PDF objects out of 1000 (max. 8388607)
+ 88 compressed objects within 1 object stream
+ 20 named destinations out of 1000 (max. 500000)
+ 48 words of extra memory for PDF output out of 10000 (max. 10000000)
 

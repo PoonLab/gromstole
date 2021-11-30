@@ -88,7 +88,19 @@ knitr::kable(omicron_mutations_used)
 
 Coverage of genomes located at the positions of selected Omicron mutations was collected from sequence coverage files. Mapped wastewater reads were then probed for selected Omicron mutations. Omicron mutations present in wastewater samples was then scaled by coverage at the site.
 
-There was low coverage of Omicron mutations across samples (**Figure 2**). However, we did find evidence of some Omicron mutations in wastewater samples when scaled by coverage (**Figure 3**). Of note, aa:S:T547K, aa:S:G446S, aa:S:G339D, aa:orf1a:K856R were all present in >1% of genomes from samples processed by laboratories at the University of Guelph. Additionally, there was no evidence of any Omnicron mutations in samples processed at Western University of laboratories.   
+Many wastewater samples had very low coverage (**Figure 2**), however there was evidence of some Omicron mutations in wastewater samples when scaled by coverage (**Figure 3**). Of note, aa:S:T547K, aa:S:G446S, aa:S:G339D, aa:orf1a:K856R were all present in >1% of genomes from samples processed by laboratories at the University of Guelph. Additionally, there was no evidence of any Omnicron mutations in samples processed at Western University of laboratories.   
+
+
+
+
+
+```{r, echo=FALSE}
+knitr::include_graphics("coveragemaps.pdf")
+```
+
+**Figure 2** Coverage of wastewater samples across the SARS-CoV-2 genome. 
+
+
 
 
 ```{r, echo=FALSE}
