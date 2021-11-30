@@ -16,6 +16,12 @@ library("here") # All paths relative to the directory with a .git folder
     # no matter where this rmd's working directory is
 library(flexdashboard)
 library(ggplot2)
+
+
+omicron_v_pango = read.csv("compare-devan-art.csv")
+omicron_v_pango$pango_freq = omicron_v_pango$pango_matches/220242
+omicron_v_pango$`In Downstream Analysis` = omicron_v_pango$freq > 0.95 & omicron_v_pango$pango_freq < 0.05
+omicron_v_pango$downstream = omicron_v_pango$`In Downstream Analysis`
 ```
 
 
@@ -33,10 +39,7 @@ library(ggplot2)
 
 * On November 27, the CoV-lineages team uploaded a `constellation' file, describing a set of mutations for classifying genomes into the newly defined lineage.
 
-
-# Analysis of Omicron mutations
-
-We have the following objectives:
+## Objectives
 
 1. identify common mutations in lineage B.1.1.529 (Omicron) relative to the SARS-CoV-2 reference genome sequence (WH1);
 
@@ -45,14 +48,17 @@ We have the following objectives:
 3. retrospectively screen all available wastewater sample data sets for the presence of these mutations.
 
 
-## Prevalence of Omicron Mutations
+# Analysis of Omicron Mutations
+
+
+Sequence data for available Omicron genomes was obtained (n=77). Gaps in Omicron sequence data were removed and data was processed to generate a list of mutations, indels and sections of low sequence coverage for each genome. 
+
+The frequency of selected mutations in the Omicron genomes (n=77) and Pango lineages (n=220242) was calculated by counting the number of occurrences of each mutation. Frequency of mutations in Omicron and Pango lineages were compared and mutations present in >95\% of Omicron genomes and <5\% of all other Pango lineages were selected for further downstream analysis of wastewater data. 
+
+There were `r nrow(omicron_v_pango)` mutations present in the Omicron genomes (n=77). Many mutations were present in other Pango lineages (**Figure 1**). Nonetheless, `r sum(omicron_v_pango$downstream)` mutations were present in >95\% of Omicron genomes and <5\% of all other Pango lineages (**Table 1**) which were used for downstream analyses.
+
 
 ```{r, echo = FALSE,fig.height=4.5}
-omicron_v_pango = read.csv("compare-devan-art.csv")
-omicron_v_pango$pango_freq = omicron_v_pango$pango_matches/220242
-omicron_v_pango$`In Downstream Analysis` = omicron_v_pango$freq > 0.95 & omicron_v_pango$pango_freq < 0.05
-omicron_v_pango$downstream = omicron_v_pango$`In Downstream Analysis`
-
 plot <- ggplot(data = omicron_v_pango, mapping = aes(x = freq, y = pango_freq + 0.000005, label = mutation, color = `In Downstream Analysis`)) + geom_point() + xlab("Frequency in Omicron") + ylab("Frequency in Pango Lineages") + scale_y_log10()+ geom_jitter() + theme(legend.position="bottom", panel.background = element_blank(),  panel.grid.major = element_blank(),
 panel.grid.minor = element_line(colour = "grey"), axis.line = element_line(colour = "black"), text = element_text(size = 8))+scale_color_manual(values=c("#999999", "#E69F00"))
 plot
@@ -60,18 +66,10 @@ plot
 
 **Figure 1** Illustration of `r nrow(omicron_v_pango)` mutations found throughout 77 Omnicron genomes. Mutations used in downstream analysis were present in >95\% of Omicron genomes and <5\% of all other Pango lineages.
 
-&nbsp;
-
-
-
-From the `r nrow(omicron_v_pango)` mutations, we selected mutations present in >95\% of Omicron genomes and <5\% of all other Pango lineages for further downstream analysis (n=`r sum(omicron_v_pango$downstream)`) on existing data files. These mutations are shown in Table 1.
-
-
-&nbsp;
 
 
 \pagebreak
-**Table 1** Mutations selected from Omicron mutations for downstream analysis of wastewater samples.
+**Table 1** Mutations selected for downstream analysis in wastewater samples.
 
 
 
@@ -86,20 +84,23 @@ knitr::kable(omicron_mutations_used)
 
 
 
-## Omicron Mutation Coverage in Wastewater Samples
+# Analysis of Omicron in Ontario Wastewater Samples
 
+Coverage of genomes located at the positions of selected Omicron mutations was collected from sequence coverage files. Mapped wastewater reads were then probed for selected Omicron mutations. Omicron mutations present in wastewater samples was then scaled by coverage at the site.
 
-## Omicron Mutations Discovered in Wastewater Samples
+There was low coverage of Omicron mutations across samples (**Figure 2**). However, we did find evidence of some Omicron mutations in wastewater samples when scaled by coverage (**Figure 3**). Of note, aa:S:T547K, aa:S:G446S, aa:S:G339D, aa:orf1a:K856R were all present in >1% of genomes from samples processed by laboratories at the University of Guelph. Additionally, there was no evidence of any Omnicron mutations in samples processed at Western University of laboratories.   
 
 
 ```{r, echo=FALSE}
 knitr::include_graphics("detection.pdf")
 ```
 
+<!-- Art please add a better figure caption here -->
 **Figure 3** Illustration of the frequency of selected Omicron mutations in wastewater samples. 
 
-&nbsp;
 
+
+# Concluding Remarks
 
 <!-- Guelph Sample (naming convention?) -->
 <!-- ========== -->
