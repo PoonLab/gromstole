@@ -31,3 +31,6 @@ data/tile-coords.csv
 
 # Working folder
 working/*
+
+# Text files in the /data folder
+data/*txt
