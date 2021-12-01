@@ -1,6 +1,7 @@
 # Auxillary Files
 *__pycache__*
 .DS_Store
+*.Rhistory
 
 # Output Files
 data/tile-coords.csv
