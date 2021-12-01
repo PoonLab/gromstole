@@ -4,9 +4,9 @@ author: "Art Poon, Devan Becker, Gopi Gugan and Erin Brintnell"
 date: "`r Sys.Date()`"
 always_allow_html: true
 output: 
+  tufte::tufte_handout: default
   pdf_document:
     toc: false
-  tufte::tufte_handout: default
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
@@ -120,7 +120,7 @@ Many wastewater samples had very low coverage (**Figure 2**), however there was 
 
 
 \clearpage
-\includegraphics[width=0.75\textwidth]{coverage.pdf}
+\includegraphics[width=0.9\textwidth]{coverage.pdf}
 
 **Figure 2** Coverage of wastewater samples across the SARS-CoV-2 genome. Low coverage means that we cannot tell if the mutations were not present or were simply not sequenced.
 
