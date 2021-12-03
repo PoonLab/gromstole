@@ -52,8 +52,10 @@ dim(freak3)
 length(freak2$pop_freq)
 background_frequency <- data.frame(
         freq = t(freak2$pop_freq %*% freak3)) %>%
-    rownames_to_column("label")
-
+    rownames_to_column("label") 
+background_frequency$label <- str_replace(background_frequency$label, "M", "~") %>%
+    str_replace("I", "+") %>%
+    str_replace("D", "-")
 
 write.csv(background_frequency,
     file = here("data", "background_frequency.csv"),
