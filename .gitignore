@@ -1,6 +1,7 @@
 # Auxillary Files
 *__pycache__*
 .DS_Store
+*.Rhistory
 
 # Output Files
 data/tile-coords.csv
@@ -27,3 +28,9 @@ data/tile-coords.csv
 
 # Saved dictionaries
 *\.json
+
+# Working folder
+working/*
+
+# Text files in the /data folder
+data/*txt
