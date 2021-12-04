@@ -3,6 +3,7 @@ library(here)
 # Omicron mutations
 ohmy <- read.csv(here("reports",
     "omicron-mutations.csv"))[, -1]
+ohmy[, 2] <- ohmy[, 2] - 1
 oh_diffs <- sapply(1:nrow(ohmy), function(x) paste(ohmy[x, 1:3], collapse = ""))
 
 # Mutations from ALL sequences that have pangolin lineages
@@ -22,6 +23,6 @@ for(i in oh_diffs){
     oh_distinct$pango_matches[oh_distinct$mutation == i] <- count_of_pango_matches
 }
 
-oh_distinct
+oh_distinct[order(as.numeric(oh_distinct$pango_matches)),]
 
 write.csv(oh_distinct, file = here("data", "omicron_v_pango.csv"))
