@@ -11,12 +11,12 @@ mfiles <- list.files("~/git/gromstole/results/",
 cfiles <- list.files("~/git/gromstole/results/", 
                      pattern="*.coverage.csv$", recursive=TRUE)
 
-# generate summary stats
-cover <- sapply(cfiles, function(f) {
-  coverage <- read.csv(f)
-  #coverage$coverage[coverage$coverage==0] <- 1
-  sum(coverage$coverage > 0)
-})
+## generate summary stats
+#cover <- sapply(cfiles, function(f) {
+#  coverage <- read.csv(f)
+#  #coverage$coverage[coverage$coverage==0] <- 1
+#  sum(coverage$coverage > 0)
+#})
 
 # determine coverage at omicron sites
 cover <- sapply(cfiles, function(f) {
@@ -25,6 +25,7 @@ cover <- sapply(cfiles, function(f) {
   coverage$coverage[which(is.element(coverage$position+1, omicron$pos))]
 })
 row.names(cover) <- omicron$label
+
 
 
 maps <- sapply(mfiles, function(f) {
@@ -61,10 +62,79 @@ for (i in 1:nrow(maps)) {
   }
 }
 
-counts <- maps*cover
-names(counts) <- names(maps)
+counts <- as.data.frame(t(maps*cover))
+names(counts) <- ifelse(omicron$mutation=='None', 
+                        gsub("~\\|", "", omicron$label), 
+                        omicron$mutation)
+counts$sample <- names(maps)
+counts$lab <- sapply(cfiles, function(x) strsplit(x, "/")[[1]][1])
+counts$coldate <- NA
+counts$site <- NA
+
+# load metadata
+metas <- list.files("~/git/gromstole/uploads/", 
+                    pattern="*meta*", recursive=TRUE)
+idx <- match(counts$sample, m$Specimen.collector.sample.ID)
+counts$coldate[!is.na(idx)] <- as.Date(
+  m$sample.collection.date[idx[!is.na(idx)]], 
+  format="%m/%d/%Y"
+  )
+counts$coldate <- as.Date(as.integer(counts$coldate), origin='1970-01-01')
 
 write.csv(counts, "counts.csv")
+
+# make a nicer coverage file too
+
+cvr <- as.data.frame(t(cover))
+names(cvr) <- ifelse(omicron$mutation=='None', 
+                     gsub("~\\|", "", omicron$label), 
+                     omicron$mutation)
+row.names(cvr) <- counts$sample
+
+write.csv(cvr, "cvr.csv")
+
+# ===============================
+# try out binomial regression test
+
+y <- as.integer(counts[40, 1:16])
+n <- as.integer(cvr[40, 1:16])
+fit <- glm(cbind(y, n) ~ 1, family='binomial')
+exp(fit$coef) / (1+exp(fit$coef))  # probability
+
+probs <- c()
+lo <- c()
+hi <- c()
+for (i in 1:nrow(counts)) {
+  y <- as.integer(counts[i, 1:16])
+  n <- as.integer(cvr[i, 1:16])
+  p <- tryCatch({
+    fit <- glm(cbind(y, n) ~ 1, family='binomial')
+    exp(fit$coef) / (1+exp(fit$coef))  # probability
+    }, 
+    error = function(cond) { 
+      return (NA) 
+    })
+  
+  probs <- c(probs, p)
+  if (is.na(p)) {
+    lo <- c(lo, NA)
+    hi <- c(hi, NA)
+  } else {
+    ci <- confint(fit)
+    lo <- c(lo, exp(ci[1]) / (1+exp(ci[1])))
+    hi <- c(hi, exp(ci[2]) / (1+exp(ci[2])))
+  }
+}
+
+barplot(as.numeric(probs)[1:80], horiz=T, 
+        names.arg=gsub("\\.[a-z0-9]+$", "", counts$sample[1:80]), 
+        las=1, cex.names=0.5)
+segments(x0=lo[1:80], x1=hi[1:80], y0=(1:80-0.5)*1.2)
+
+# ============================
+
+# make a nice plot
+
 
 # ============================
 
