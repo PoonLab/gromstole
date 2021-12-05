@@ -27,6 +27,7 @@ def cutadapt(fq1, fq2, adapter="AGATCGGAAGAGC", ncores=1, minlen=10):
     # FIXME: need to be able to pass different path to executable
     cmd = ['cutadapt', '-a', adapter, '-A', adapter, '-o', of1.name, '-p', of2.name,
            '-j', str(ncores), '-m', str(minlen), '--quiet', fq1, fq2]
+    print(cmd)
     p = subprocess.check_call(cmd)
     of1.close()
     of2.close()
