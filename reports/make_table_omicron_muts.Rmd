@@ -9,16 +9,22 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
 library(kableExtra)
 library(formattable)
+library(here)
 ```
 
 
 
 ```{r, echo=FALSE}
-cvr <- read.csv("~/Masters/Gromstole/analysis/omicron/cvr.csv", row.names=1)
+cvr <- read.csv(here("results/cvr.csv"), row.names=1, stringsAsFactors = FALSE)
 
 cvr[1:ncol(cvr)] <- lapply (cvr[1:ncol(cvr)], function(x){
   cell_spec(x, color = "black", background = spec_color(x, option = "A", begin = 0.2,  direction = -1 , scale_from = c(0,10000)))
 })
+if (grepl("/", row.names(cvr))) {
+  row.names(cvr) <- sapply(strsplit(row.names(cvr), split = "/"), function(x) {
+    strsplit(x[length(x)], split = "\\.")[[1]][1]
+  })
+}
 
  kbl(cvr, escape = F, align = "c", longtable = TRUE) %>%
   kable_paper("basic", full_width = F) %>%
@@ -26,8 +32,13 @@ cvr[1:ncol(cvr)] <- lapply (cvr[1:ncol(cvr)], function(x){
       column_spec(1, width = "2cm") %>% row_spec(0,angle = 90)
 ```
 
-```{r, echo=FALSE, message=FALSE}
-counts <- read.csv("~/Masters/Gromstole/analysis/omicron/counts.csv", row.names=1)
+```{r, echo=FALSE, message=FALSE,}
+counts <- read.csv(here("results/counts.csv"), row.names=1, stringsAsFactors = FALSE)
+if (grepl("/", row.names(counts))) {
+  row.names(counts) <- sapply(strsplit(row.names(counts), split = "/"), function(x) {
+    strsplit(x[length(x)], split = "\\.")[[1]][1]
+  })
+}
 col_nams <- colnames(counts)
 row_nams <- rownames(counts)
 counts <- data.frame(matrix(as.numeric(unlist(counts)), nrow = nrow(counts)))
