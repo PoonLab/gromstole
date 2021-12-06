@@ -113,8 +113,8 @@ probs <- c()
 lo <- c()
 hi <- c()
 for (i in 1:nrow(counts)) {
-  y <- as.integer(counts[i, 1:16])
-  n <- as.integer(cvr[i, 1:16])
+  y <- as.integer(counts[i, 1:16])  # number of "successes"
+  n <- as.integer(cvr[i, 1:16])  # number of trials
   p <- tryCatch({
     fit <- glm(cbind(y, n) ~ 1, family='binomial')
     exp(fit$coef) / (1+exp(fit$coef))  # probability
@@ -128,7 +128,7 @@ for (i in 1:nrow(counts)) {
     lo <- c(lo, NA)
     hi <- c(hi, NA)
   } else {
-    ci <- confint(fit)
+    suppressMessages(ci <- confint(fit))
     lo <- c(lo, exp(ci[1]) / (1+exp(ci[1])))
     hi <- c(hi, exp(ci[2]) / (1+exp(ci[2])))
   }
