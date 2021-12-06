@@ -48,7 +48,9 @@ row.names(maps) <- omicron$label
 maps <- as.data.frame(maps)
 
 # set column names to sample identifiers
-names(maps) <- gsub("^\\w+/.+/(.+)\\.mapped\\.csv", "\\1", colnames(maps))
+names(maps) <- sapply(strsplit(colnames(maps), split = "/"), function(x) {
+  strsplit(x[length(x)], split = "\\.")[[1]][1]
+})
 
 # set zeroes for sites with non-zero coverage
 cover <- as.data.frame(cover)
@@ -133,7 +135,7 @@ for (i in 1:nrow(counts)) {
     hi <- c(hi, exp(ci[2]) / (1+exp(ci[2])))
   }
 }
-
+par(mar = c(3,5,1,1))
 barplot(as.numeric(probs)[1:80], horiz=T, 
         names.arg=gsub("\\.[a-z0-9]+$", "", counts$sample[1:80]), 
         las=1, cex.names=0.5)
