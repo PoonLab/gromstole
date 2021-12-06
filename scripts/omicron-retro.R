@@ -72,7 +72,10 @@ names(counts) <- ifelse(omicron$mutation=='None',
                         omicron$mutation)
 counts$sample <- names(maps)
 # switching to `here` library broke this line
-counts$lab <- sapply(cfiles, function(x) strsplit(x, "/")[[1]][6])
+counts$lab <- sapply(cfiles, function(x) {
+  tokens <- strsplit(x, "/")[[1]]
+  tokens[length(tokens)-2]
+  })
 counts$coldate <- NA
 counts$site <- NA
 
