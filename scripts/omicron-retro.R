@@ -1,7 +1,7 @@
 library(here)
 
 # load mutations specific to Omicron variant
-omicron <- read.csv(here('working/omicron/omicron-specific.csv'), 
+omicron <- read.csv(here('data/omicron-specific.csv'), 
   row.names = 1, stringsAsFactors = FALSE)
 omicron$X <- NULL  # remove duplicate row names
 omicron$label <- paste(omicron$type, omicron$pos, omicron$alt, sep="|")
@@ -72,7 +72,7 @@ names(counts) <- ifelse(omicron$mutation=='None',
                         omicron$mutation)
 counts$sample <- names(maps)
 # switching to `here` library broke this line
-counts$lab <- sapply(cfiles, function(x) strsplit(x, "/")[[1]][7])
+counts$lab <- sapply(cfiles, function(x) strsplit(x, "/")[[1]][6])
 counts$coldate <- NA
 counts$site <- NA
 
