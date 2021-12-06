@@ -48,7 +48,7 @@ row.names(maps) <- omicron$label
 maps <- as.data.frame(maps)
 
 # set column names to sample identifiers
-names(maps) <- gsub("^\\w+/.+/(.+)\\.mapped\\.csv", "\\1", colnames(maps))
+names(maps) <- gsub(".+/(.+)\\.mapped\\.csv", "\\1", colnames(maps))
 
 # set zeroes for sites with non-zero coverage
 cover <- as.data.frame(cover)
@@ -64,11 +64,13 @@ for (i in 1:nrow(maps)) {
 }
 
 counts <- as.data.frame(t(maps*cover))
+row.names(counts) <- NULL
 names(counts) <- ifelse(omicron$mutation=='None', 
                         gsub("~\\|", "", omicron$label), 
                         omicron$mutation)
 counts$sample <- names(maps)
-counts$lab <- sapply(cfiles, function(x) strsplit(x, "/")[[1]][1])
+# switching to `here` library broke this line
+counts$lab <- sapply(cfiles, function(x) strsplit(x, "/")[[1]][7])
 counts$coldate <- NA
 counts$site <- NA
 
@@ -134,10 +136,28 @@ for (i in 1:nrow(counts)) {
   }
 }
 
-barplot(as.numeric(probs)[1:80], horiz=T, 
-        names.arg=gsub("\\.[a-z0-9]+$", "", counts$sample[1:80]), 
-        las=1, cex.names=0.5)
-segments(x0=lo[1:80], x1=hi[1:80], y0=(1:80-0.5)*1.2)
+pdf(file="guelph.pdf", width=6, height=8)
+par(mar=c(5,5,1.5,1.5))
+idx <- which(counts$lab=='guelph')
+barplot(as.numeric(probs)[idx], horiz=T, main="Guelph", adj=0, cex.main=1.5, 
+        names.arg=gsub("\\.[a-z0-9]+$", "", counts$sample[idx]), 
+        las=1, cex.names=0.6, xlim=c(0, 0.05), 
+        xlab="Estimated frequency", cex.lab=1.2)
+segments(x0=lo[idx], x1=hi[idx], y0=(1:length(idx)-0.45)*1.2, lwd=2)
+abline(v=0.01, lty=2)
+dev.off()
+
+pdf(file="waterloo.pdf", width=6, height=8)
+par(mar=c(5,5,1.5,1.5))
+idx <- which(counts$lab=='waterloo')
+barplot(as.numeric(probs)[idx], horiz=T, main="Waterloo", adj=0, cex.main=1.5, 
+        names.arg=gsub("\\.[a-z0-9]+$", "", counts$sample[idx]), 
+        las=1, cex.names=0.6, xlim=c(0, 0.05),
+        xlab="Estimated frequency", cex.lab=1.2)
+segments(x0=lo[idx], x1=hi[idx], y0=(1:length(idx)-0.45)*1.2, lwd=2)
+abline(v=0.01, lty=2)
+dev.off()
+
 
 # ============================
 
@@ -218,4 +238,5 @@ write.csv(gcounts, here("results/guelph-counts.csv"))
 
 
 meta <- read.csv(here("uploads/guelph/20211105_151243/metadata_guelph_20211105_151243.csv"))
+
 
