@@ -161,6 +161,17 @@ segments(x0=lo[idx], x1=hi[idx], y0=(1:length(idx)-0.45)*1.2, lwd=2)
 abline(v=0.01, lty=2)
 dev.off()
 
+pdf(file="western.pdf", width=6, height=8)
+par(mar=c(5,5,1.5,1.5))
+idx <- which(counts$lab=='western')
+barplot(as.numeric(probs)[idx], horiz=T, main="Western", adj=0, cex.main=1.5, 
+        names.arg=gsub("\\.[a-z0-9]+$", "", counts$sample[idx]), 
+        las=1, cex.names=0.6, xlim=c(0, 0.05),
+        xlab="Estimated frequency", cex.lab=1.2)
+segments(x0=lo[idx], x1=hi[idx], y0=(1:length(idx)-0.45)*1.2, lwd=2)
+abline(v=0.01, lty=2)
+dev.off()
+
 
 # ============================
 
