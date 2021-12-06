@@ -1,14 +1,15 @@
+library(here)
 
 # load mutations specific to Omicron variant
-omicron <- read.csv('~/git/gromstole/working/omicron/omicron-specific.csv', row.names=1)
+omicron <- read.csv(here('working/omicron/omicron-specific.csv'), 
+  row.names = 1, stringsAsFactors = FALSE)
 omicron$X <- NULL  # remove duplicate row names
 omicron$label <- paste(omicron$type, omicron$pos, omicron$alt, sep="|")
 
 
-setwd("~/git/gromstole/results/")
-mfiles <- list.files("~/git/gromstole/results/", 
+mfiles <- list.files(here("results"), full.names = TRUE,
                      pattern="*.mapped.csv$", recursive=TRUE)
-cfiles <- list.files("~/git/gromstole/results/", 
+cfiles <- list.files(here("results"), full.names = TRUE,
                      pattern="*.coverage.csv$", recursive=TRUE)
 
 ## generate summary stats
@@ -20,7 +21,7 @@ cfiles <- list.files("~/git/gromstole/results/",
 
 # determine coverage at omicron sites
 cover <- sapply(cfiles, function(f) {
-  coverage <- read.csv(f)
+  coverage <- read.csv(f, stringsAsFactors = FALSE)
   # NOTE: coverage$position is 0-index, omicron$pos is 1-index
   coverage$coverage[which(is.element(coverage$position+1, omicron$pos))]
 })
@@ -29,7 +30,7 @@ row.names(cover) <- omicron$label
 
 
 maps <- sapply(mfiles, function(f) {
-  mapped <- read.csv(f)
+  mapped <- read.csv(f, stringsAsFactors = FALSE)
   mapped$type <- substr(mapped$label, 1, 1)
   mapped$pos <- mapped$position + 1
   mapped$alt <- sapply(strsplit(mapped$label, as.character(mapped$pos)), 
@@ -72,8 +73,15 @@ counts$coldate <- NA
 counts$site <- NA
 
 # load metadata
-metas <- list.files("~/git/gromstole/uploads/", 
+metas <- list.files(here("uploads"), full.names = TRUE,
                     pattern="*meta*", recursive=TRUE)
+m <- lapply(metas, function(x) {
+  # Reading everything in as a character to avoid type issues (logical v. character)
+  meta <- read.csv(x, colClasses = "character")
+  meta
+})
+#m <- do.call(rbind, m)
+m <- dplyr::bind_rows(m)
 idx <- match(counts$sample, m$Specimen.collector.sample.ID)
 counts$coldate[!is.na(idx)] <- as.Date(
   m$sample.collection.date[idx[!is.na(idx)]], 
@@ -81,7 +89,7 @@ counts$coldate[!is.na(idx)] <- as.Date(
   )
 counts$coldate <- as.Date(as.integer(counts$coldate), origin='1970-01-01')
 
-write.csv(counts, "counts.csv")
+write.csv(counts, here("results/counts.csv"))
 
 # make a nicer coverage file too
 
@@ -91,7 +99,7 @@ names(cvr) <- ifelse(omicron$mutation=='None',
                      omicron$mutation)
 row.names(cvr) <- counts$sample
 
-write.csv(cvr, "cvr.csv")
+write.csv(cvr, here("results/cvr.csv"))
 
 # ===============================
 # try out binomial regression test
@@ -138,7 +146,7 @@ segments(x0=lo[1:80], x1=hi[1:80], y0=(1:80-0.5)*1.2)
 
 # ============================
 
-pdf("detection.pdf", width=6, height=6)
+pdf(here("results/detection.pdf"), width=6, height=6)
 
 par(mar=c(5,7,3,1))
 plot(NA, xlim=c(1e-5, 0.1), ylim=c(0.5, nrow(omicron)+0.5), 
@@ -206,8 +214,8 @@ for (i in 1:nrow(guelph)) {
 
 gcounts <- guelph * cover[,grepl("guelph", colnames(cover))]
 
-write.csv(gcounts, "guelph-counts.csv")
+write.csv(gcounts, here("results/guelph-counts.csv"))
 
 
-meta <- read.csv("~/git/gromstole/uploads/guelph/20211105_151243/metadata_guelph_20211105_151243.csv")
+meta <- read.csv(here("uploads/guelph/20211105_151243/metadata_guelph_20211105_151243.csv"))
 
