@@ -5,6 +5,7 @@
 
 # Output Files
 data/tile-coords.csv
+*bin
 
 # Fasta
 *\.fa
@@ -20,6 +21,8 @@ data/tile-coords.csv
 !data/omicron_v_pango.csv
 *\.tsv
 !data/nCoV-2019.tsv
+!results/counts.csv
+!results/cvr.csv
 
 # Archives
 *\.gz
@@ -34,3 +37,6 @@ working/*
 
 # Text files in the /data folder
 data/*txt
+
+# Images
+*.png
