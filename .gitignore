@@ -40,3 +40,12 @@ data/*txt
 
 # Images
 *.png
+
+# Report template files
+reports/*.aux
+reports/*.pdf
+reports/*.log
+reports/*.html
+
+results/*.pdf
+
