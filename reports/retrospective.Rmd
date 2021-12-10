@@ -5,8 +5,7 @@ date: "`r Sys.Date()`"
 always_allow_html: true
 output:
   tufte::tufte_handout: default
-  pdf_document:
-    toc: false
+  keep_tex: yes
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
@@ -103,7 +102,7 @@ ggplot(data = omicron,
 
 ```
 
-```{r echo=FALSE, fig.height=4.5}
+```{r echo=FALSE, fig.height=4.5, cache=TRUE}
 par(family='Palatino')
 plot(omicron$freq, omicron$back.max, pch=21, col='white', 
      bg=ifelse(omicron$freq >= 0.95 & omicron$back.max <= 0.05, 'dodgerblue', 'firebrick'), xlab="Frequency in Omicron (n=77)", ylab="Frequency in all other lineages")
