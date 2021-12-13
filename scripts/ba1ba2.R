@@ -1,11 +1,9 @@
+## based on omicron-retro.R, priority analysis of BA1/BA2/B.1.1.529
+
 setwd('~/git/gromstole')
 
 # load B.1.1.529/BA.1/BA.2 mutations list
-omi <- read.csv('data/omicron-BA.csv')
-
-ba.1 <- omi[omi$lineage == 'B.1.1.529' | omi$lineage == 'BA.1', ]
-ba.2 <- omi[omi$lineage == 'B.1.1.529' | omi$lineage == 'BA.2', ]
-
+omi <- read.csv('data/omicron-BA-fixed.csv')
 
 # load background mutation frequencies (get-BA1BA2-uniques.py)
 bkgd <- read.csv('data/get-BA1BA2-uniques.csv')
@@ -17,7 +15,7 @@ barplot(x)
 
 
 fin <- omi[which(x<0.05),]
-write.csv(fin, file="persei8.csv")
+#write.csv(fin, file="persei8.csv")
 
 fin$label <- paste(fin$type, fin$pos, fin$alt, sep='|')
 
@@ -31,10 +29,16 @@ cfiles <- list.files(here("results/waterloo/run6"), full.names = TRUE,
 cover <- sapply(cfiles, function(f) {
   coverage <- read.csv(f, stringsAsFactors = FALSE)
   # NOTE: coverage$position is 0-index, omicron$pos is 1-index
-  coverage$coverage[which(is.element(coverage$position+1, fin$pos))]
+  #coverage$coverage[which(is.element(coverage$position+1, fin$pos))]
+  idx <- match(fin$pos, coverage$position+1)
+  coverage$coverage[idx[!is.na(idx)]]
+  #coverage$coverage[fin$pos-1]
 })
 row.names(cover) <- fin$label
-
+cover <- as.data.frame(cover)
+names(cover) <- sapply(strsplit(colnames(cover), split = "/"), function(x) {
+  strsplit(x[length(x)], split = "\\.")[[1]][1]
+})
 
 
 maps <- sapply(mfiles, function(f) {
@@ -62,7 +66,6 @@ names(maps) <- sapply(strsplit(colnames(maps), split = "/"), function(x) {
 
 
 # set zeroes for sites with non-zero coverage
-cover <- as.data.frame(cover)
 mask <- (cover > 0)
 for (i in 1:nrow(maps)) {
   for (j in 1:ncol(maps)) {
@@ -74,9 +77,9 @@ for (i in 1:nrow(maps)) {
   }
 }
 
-
-
 counts <- as.data.frame(t(maps*cover))
+
+
 row.names(counts) <- NULL
 names(counts) <- fin$mut_aa
 counts$sample <- names(maps)

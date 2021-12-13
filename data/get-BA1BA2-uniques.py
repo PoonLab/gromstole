@@ -7,7 +7,7 @@ import sys
 
 # read in mutations observed in Omicron genomes
 omicron = {}
-for row in csv.DictReader(open("omicron-BA.csv")):
+for row in csv.DictReader(open("omicron-BA-fixed.csv")):
     key = "{type}|{pos}|{alt}".format(**row)
     omicron.update({key: None})
 
