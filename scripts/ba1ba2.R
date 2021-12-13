@@ -8,11 +8,6 @@ omi <- read.csv('data/omicron-BA-fixed.csv')
 # load background mutation frequencies (get-BA1BA2-uniques.py)
 bkgd <- read.csv('data/get-BA1BA2-uniques.csv')
 
-# since we don't have frequency info for BA.*, just check background freqs
-x <- apply(bkgd[3:ncol(bkgd)], 2, max)
-par(mar=c(5,5,1,1))
-barplot(x)
-
 
 fin <- omi[which(x<0.05),]
 #write.csv(fin, file="persei8.csv")
@@ -23,6 +18,10 @@ require(here)
 mfiles <- list.files(here("results/waterloo/run6"), full.names = TRUE,
                      pattern="*.mapped.csv$", recursive=TRUE)
 cfiles <- list.files(here("results/waterloo/run6"), full.names = TRUE,
+                     pattern="*.coverage.csv$", recursive=TRUE)
+#mfiles <- list.files(here("results/guelph/20211211_100707/"), full.names = TRUE,
+#                     pattern="*.mapped.csv$", recursive=TRUE)
+#cfiles <- list.files(here("results/guelph/20211211_100707/"), full.names = TRUE,
                      pattern="*.coverage.csv$", recursive=TRUE)
 
 
@@ -88,7 +87,86 @@ counts$lab <- sapply(cfiles, function(x) {
   tokens <- strsplit(x, "/")[[1]]
   tokens[length(tokens)-2]
 })
-counts$coldate <- NA
-counts$site <- NA
+
+idx <- match(counts$sample, m$specimen.collector.sample.ID)
+counts$coldate[!is.na(idx)] <- as.Date(
+     m$sample.collection.date[idx[!is.na(idx)]], 
+     format="%b %d %Y"  #"%m/%d/%Y"
+     )
+counts$coldate <- as.Date(as.integer(counts$coldate), origin='1970-01-01')
+counts$site <- m$geolocation.name..region.[idx]
+
+cvr <- as.data.frame(t(cover))
+names(cvr) <- names(counts)[1:ncol(cvr)]
+
+# sort by site and collection date
+idx <- order(counts$site, counts$coldate)
+counts <- counts[idx, ]
+cvr <- cvr[idx, ]
+
+est.freq <- function(midx) {
+     probs <- c()
+     lo <- c()
+     hi <- c()
+     for (i in 1:nrow(counts)) {
+         y <- as.integer(counts[i, midx])  # number of "successes"
+         n <- as.integer(cvr[i, midx])  # number of trials
+         p <- tryCatch({
+             fit <- glm(cbind(y, n-y) ~ 1, family='binomial')
+             exp(fit$coef) / (1+exp(fit$coef))  # probability
+           }, 
+           error = function(cond) { 
+               return (NA) 
+             })
+         
+           probs <- c(probs, p)
+           if (is.na(p)) {
+               lo <- c(lo, NA)
+               hi <- c(hi, NA)
+             } else {
+                 suppressMessages(ci <- confint(fit))
+                 lo <- c(lo, exp(ci[1]) / (1+exp(ci[1])))
+                 hi <- c(hi, exp(ci[2]) / (1+exp(ci[2])))
+               }
+         }
+   return (list(probs=probs, lo=lo, hi=hi))
+}
 
 
+
+b529 <- which(fin$lineage=='B.1.1.529')
+ba1 <- which(fin$lineage=='BA.1' | fin$lineage=='B.1.1.529')
+ba2 <- which(fin$lineage=='BA.2' | fin$lineage=='B.1.1.529')
+
+pdf(file="recover.pdf", width=15, height=5) 
+
+par(mar=c(5,8,1,1), mfrow=c(1,3), cex=1)
+ 
+res <- est.freq(b529)
+barplot(as.numeric(res$probs), horiz=T, main="B.1.1.529", adj=0, cex.main=1.5, 
+                   names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+                   las=1, cex.names=0.6, xlim=c(0, 0.05),
+                   xlab="Estimated frequency", cex.lab=1.2,
+                   col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
+segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
+abline(v=0.01, lty=2)
+
+res <- est.freq(ba1)
+barplot(as.numeric(res$probs), horiz=T, main="BA.1", adj=0, cex.main=1.5, 
+                   names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+                   las=1, cex.names=0.6, xlim=c(0, 0.05),
+                   xlab="Estimated frequency", cex.lab=1.2,
+                   col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
+segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
+abline(v=0.01, lty=2)
+ 
+res <- est.freq(ba2)
+barplot(as.numeric(res$probs), horiz=T, main="BA.2", adj=0, cex.main=1.5, 
+                   names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+                   las=1, cex.names=0.6, xlim=c(0, 0.05),
+                   xlab="Estimated frequency", cex.lab=1.2,
+                   col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
+segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
+abline(v=0.01, lty=2)
+ 
+dev.off()
