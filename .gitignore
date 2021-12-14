@@ -3,6 +3,10 @@
 .DS_Store
 *.Rhistory
 
+# Data directories (from Langley)
+uploads/*
+results/*
+
 # Output Files
 data/tile-coords.csv
 *bin
@@ -44,6 +48,5 @@ reports/*.aux
 reports/*.pdf
 reports/*.log
 reports/*.html
-
 results/*.pdf
 
