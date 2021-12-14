@@ -30,7 +30,8 @@ for(i in 1:nrow(omi)) {
 }
 
 fin <- omi[which(omi$back < 0.05),]
-#write.csv(fin, file="persei8.csv")
+#write.csv(fin, file="data/persei8.csv")
+#fin <- read.csv("data/persei8.csv")
 
 fin$label <- paste(fin$type, fin$pos, fin$alt, sep='|')
 
@@ -42,7 +43,7 @@ cfiles <- list.files(here("results/waterloo/run6"), full.names = TRUE,
 #mfiles <- list.files(here("results/guelph/20211211_100707/"), full.names = TRUE,
 #                     pattern="*.mapped.csv$", recursive=TRUE)
 #cfiles <- list.files(here("results/guelph/20211211_100707/"), full.names = TRUE,
-                     pattern="*.coverage.csv$", recursive=TRUE)
+#                     pattern="*.coverage.csv$", recursive=TRUE)
 
 
 cover <- sapply(cfiles, function(f) {
@@ -167,7 +168,7 @@ par(mar=c(5,8,1,1), mfrow=c(1,3), cex=1)
 res <- est.freq(b529)
 barplot(as.numeric(res$probs), horiz=T, main="B.1.1.529", adj=0, cex.main=1.5, 
                    names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
-                   las=1, cex.names=0.6, xlim=c(0, 0.05),
+                   las=1, cex.names=0.6, xlim=c(0, 0.5),
                    xlab="Estimated frequency", cex.lab=1.2,
                    col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
 segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
@@ -176,7 +177,7 @@ abline(v=0.01, lty=2)
 res <- est.freq(ba1)
 barplot(as.numeric(res$probs), horiz=T, main="BA.1", adj=0, cex.main=1.5, 
                    names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
-                   las=1, cex.names=0.6, xlim=c(0, 0.05),
+                   las=1, cex.names=0.6, xlim=c(0, 0.5),
                    xlab="Estimated frequency", cex.lab=1.2,
                    col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
 segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
@@ -185,7 +186,7 @@ abline(v=0.01, lty=2)
 res <- est.freq(ba2)
 barplot(as.numeric(res$probs), horiz=T, main="BA.2", adj=0, cex.main=1.5, 
                    names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
-                   las=1, cex.names=0.6, xlim=c(0, 0.05),
+                   las=1, cex.names=0.6, xlim=c(0, 0.5),
                    xlab="Estimated frequency", cex.lab=1.2,
                    col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
 segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
