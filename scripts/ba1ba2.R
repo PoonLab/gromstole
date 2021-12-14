@@ -5,26 +5,32 @@ setwd('~/git/gromstole')
 # load B.1.1.529/BA.1/BA.2 mutations list
 omi <- read.csv('data/omicron-BA-fixed.csv')
 
-# load background mutation frequencies (get-BA1BA2-uniques.py)
+# load background mutation frequencies (get-BA1BA2-uniques.py, from Nov 26)
 bkgd <- read.csv('data/get-BA1BA2-uniques.csv')
 
-
+# select mutations that are present in at most 5% of any other lineage
+x <- apply(bkgd[,3:ncol(bkgd)], 2, max)
 fin <- omi[which(x<0.05),]
 #write.csv(fin, file="persei8.csv")
-
 fin$label <- paste(fin$type, fin$pos, fin$alt, sep='|')
 
+
+# locate data files
 require(here)
-mfiles <- list.files(here("results/waterloo/run6"), full.names = TRUE,
-                     pattern="*.mapped.csv$", recursive=TRUE)
-cfiles <- list.files(here("results/waterloo/run6"), full.names = TRUE,
-                     pattern="*.coverage.csv$", recursive=TRUE)
-#mfiles <- list.files(here("results/guelph/20211211_100707/"), full.names = TRUE,
-#                     pattern="*.mapped.csv$", recursive=TRUE)
-#cfiles <- list.files(here("results/guelph/20211211_100707/"), full.names = TRUE,
-                     pattern="*.coverage.csv$", recursive=TRUE)
+if (guelph) {
+  mfiles <- list.files(here("results/guelph/20211211_100707/"), full.names = TRUE,
+                       pattern="*.mapped.csv$", recursive=TRUE)
+  cfiles <- list.files(here("results/guelph/20211211_100707/"), full.names = TRUE,
+                       pattern="*.coverage.csv$", recursive=TRUE)  
+} else {
+  mfiles <- list.files(here("results/waterloo/run6"), full.names = TRUE,
+                       pattern="*.mapped.csv$", recursive=TRUE)
+  cfiles <- list.files(here("results/waterloo/run6"), full.names = TRUE,
+                       pattern="*.coverage.csv$", recursive=TRUE)  
+}
 
 
+# import coverage data
 cover <- sapply(cfiles, function(f) {
   coverage <- read.csv(f, stringsAsFactors = FALSE)
   # NOTE: coverage$position is 0-index, omicron$pos is 1-index
@@ -40,6 +46,7 @@ names(cover) <- sapply(strsplit(colnames(cover), split = "/"), function(x) {
 })
 
 
+# import mutation frequency data
 maps <- sapply(mfiles, function(f) {
   mapped <- read.csv(f, stringsAsFactors = FALSE)
   mapped$type <- substr(mapped$label, 1, 1)
@@ -76,6 +83,7 @@ for (i in 1:nrow(maps)) {
   }
 }
 
+# convert to integer counts
 counts <- as.data.frame(t(maps*cover))
 
 
@@ -88,12 +96,38 @@ counts$lab <- sapply(cfiles, function(x) {
   tokens[length(tokens)-2]
 })
 
-idx <- match(counts$sample, m$specimen.collector.sample.ID)
-counts$coldate[!is.na(idx)] <- as.Date(
-     m$sample.collection.date[idx[!is.na(idx)]], 
-     format="%b %d %Y"  #"%m/%d/%Y"
-     )
-counts$coldate <- as.Date(as.integer(counts$coldate), origin='1970-01-01')
+
+# load metadata
+if (guelph) {
+  m <- read.csv('uploads/guelph/20211211_100707/metadata_guelph_12Dec2021.csv')
+  m <- m[1:30]
+  m$Specimen.collector.sample.ID <- sapply(as.character(m$r1.fastq.filename), function(x) {
+    strsplit(x, "_")[[1]][1]
+  })  
+} else {
+  m <- read.csv("uploads/waterloo/run6/metadata.csv")  
+}
+
+
+if (guelph) {
+  idx <- match(counts$sample, m$Specimen.collector.sample.ID) 
+} else {
+  idx <- match(counts$sample, m$specimen.collector.sample.ID)  
+}
+
+
+if (guelph) {
+  counts$coldate <- as.Date(m$sample.collection.date[idx], 
+                            format="%d-%b-%y"  #"%m/%d/%Y"
+  )  
+} else {
+  counts$coldate[!is.na(idx)] <- as.Date(
+    m$sample.collection.date[idx[!is.na(idx)]], 
+    format="%b %d %Y")  #"%m/%d/%Y"
+  counts$coldate <- as.Date(counts$coldate, origin="1970-01-01")  
+}
+
+
 counts$site <- m$geolocation.name..region.[idx]
 
 cvr <- as.data.frame(t(cover))
@@ -103,6 +137,7 @@ names(cvr) <- names(counts)[1:ncol(cvr)]
 idx <- order(counts$site, counts$coldate)
 counts <- counts[idx, ]
 cvr <- cvr[idx, ]
+
 
 est.freq <- function(midx) {
      probs <- c()
@@ -133,15 +168,20 @@ est.freq <- function(midx) {
 }
 
 
-
 b529 <- which(fin$lineage=='B.1.1.529')
 ba1 <- which(fin$lineage=='BA.1' | fin$lineage=='B.1.1.529')
 ba2 <- which(fin$lineage=='BA.2' | fin$lineage=='B.1.1.529')
 
-pdf(file="recover.pdf", width=15, height=5) 
+# set output for PDF
+if (guelph) {
+  pdf(file="guelph2.pdf", width=15, height=5)  
+} else {
+  # waterloo
+  pdf(file="waterloo.pdf", width=15, height=5)
+}
 
 par(mar=c(5,8,1,1), mfrow=c(1,3), cex=1)
- 
+
 res <- est.freq(b529)
 barplot(as.numeric(res$probs), horiz=T, main="B.1.1.529", adj=0, cex.main=1.5, 
                    names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
