@@ -1,6 +1,8 @@
 ## based on omicron-retro.R, priority analysis of BA1/BA2/B.1.1.529
 
-setwd('~/git/gromstole')
+#setwd('~/git/gromstole')
+
+guelph <- "--guelph" %in% commandArgs(TRUE)
 
 # load B.1.1.529/BA.1/BA.2 mutations list
 omi <- read.csv('data/omicron-BA-fixed.csv')
@@ -10,6 +12,10 @@ bkgd <- read.csv('data/get-BA1BA2-uniques.csv')
 
 # select mutations that are present in at most 5% of any other lineage
 x <- apply(bkgd[,3:ncol(bkgd)], 2, max)
+# mismatch: row 36 of omi is a duplicate; not present in columns of bkgd
+# 
+#x <- c(x[1:35], 0, x[36:length(x)])
+omi <- omi[-36, ]
 fin <- omi[which(x<0.05),]
 #write.csv(fin, file="persei8.csv")
 fin$label <- paste(fin$type, fin$pos, fin$alt, sep='|')
