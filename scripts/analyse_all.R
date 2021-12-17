@@ -11,9 +11,9 @@ coco <- read.csv(here("data", "coco.csv"))
 
 head(coco)
 table(coco$coldate)
-sum(is.na(coco$coldate)); nrow(coco)  # Well, damn.
-sum(is.na(coco$location)); nrow(coco) # Well, damn.
-sum(is.na(coco$latitude)); nrow(coco) # Well, damn.
+sum(is.na(coco$coldate)); nrow(coco) 
+sum(is.na(coco$location)); nrow(coco) 
+sum(is.na(coco$latitude)); nrow(coco) 
 # So no metadata, then.
 
 # Prepare for the results
