@@ -5,7 +5,7 @@ suppressPackageStartupMessages(library(dplyr))
 # Open coco (first co: count, second co: coverage)
 # Processes all of the mapped and coverage files on langley,
     # only includes omicron-specific mutations (currently)
-# ssh dbecker7@langley cd gromstole-aux && Rscript coco.R
+# ssh dbecker7@langley "cd gromstole-aux; Rscript coco.R"
 # scp dbecker7@langley:gromstole-aux/coco.csv ./data
 coco <- read.csv(here("data", "coco.csv"))
 
@@ -44,6 +44,7 @@ for (i in seq_len(nrow(res_df))) {
 
 res_df
 
+pdf(file = here("results", "all-Langley.pdf"), width = 8, height = 10)
 ggplot(res_df) + theme_bw() +
     aes(x = sample, y = prop, ymin = lo, ymax = hi) +
     geom_errorbar() +
@@ -52,4 +53,4 @@ ggplot(res_df) + theme_bw() +
         colour = "grey") +
     facet_wrap(~lab, scales = "free_y") +
     coord_flip()
-
+dev.off()
