@@ -1,6 +1,6 @@
 # Fixing Omicron data
-setwd('~/git/gromstole')
 
+#setwd('~/git/gromstole')
 omicron <- read.csv("https://github.com/cov-lineages/pango-designation/files/7668225/Omicron_BA.1_BA.2_mutations.csv",
     stringsAsFactors = FALSE)
 names(omicron)[c(1,4)] <- c("mut_nuc", "mut_aa")
@@ -51,7 +51,7 @@ omicron$alt[multi_muts] <- sapply(strsplit(omicron$mut_nuc[multi_muts], split = 
         }), collapse = ""))
 omicron$alt[dels] <- sapply(strsplit(omicron$mut_nuc[dels], split = "[_del]"), 
     function(x) {
-        as.numeric(x[2]) - as.numeric(x[1])
+        as.numeric(x[2]) - as.numeric(x[1]) + 1
     })
 omicron$alt[inss] <- sapply(strsplit(omicron$mut_nuc[inss], split = "[(0-9)ins]"), 
     function(x) {
@@ -62,7 +62,7 @@ omicron[, c("alt", "mut_nuc")]
 
 
 # Dealing with (main)
-omicron[grepl("(main)", omicron$mut_nuc), c("type", "pos", "alt")] <- c("-", 21987, 8)
+omicron[grepl("(main)", omicron$mut_nuc), c("type", "pos", "alt")] <- c("-", 21987, 9)
 
 # One column for lineage
 omicron$lineage <- apply(omicron[, c("BA.1", "BA.2", "B.1.1.529")], 1, 

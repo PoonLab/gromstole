@@ -80,180 +80,107 @@ counts$coldate <- NA
 counts$site <- NA
 
 # load metadata
-metas <- list.files(here("uploads"), full.names = TRUE,
+#metas <- list.files(here("uploads"), full.names = TRUE,
                     pattern="*meta*", recursive=TRUE)
-m <- lapply(metas, function(x) {
+#m <- lapply(metas, function(x) {
   # Reading everything in as a character to avoid type issues (logical v. character)
-  meta <- read.csv(x, colClasses = "character")
-  meta
-})
+#  meta <- read.csv(x, colClasses = "character")
+#  meta
+#})
+m <- read.csv("uploads/waterloo/run6/metadata.csv", header=T)
+
 #m <- do.call(rbind, m)
 m <- dplyr::bind_rows(m)
-idx <- match(counts$sample, m$Specimen.collector.sample.ID)
+idx <- match(counts$sample, m$specimen.collector.sample.ID)  # they changed case!
 counts$coldate[!is.na(idx)] <- as.Date(
   m$sample.collection.date[idx[!is.na(idx)]], 
-  format="%m/%d/%Y"
+  format="%b %d %Y"  #"%m/%d/%Y"
   )
 counts$coldate <- as.Date(as.integer(counts$coldate), origin='1970-01-01')
-
-write.csv(counts, here("results/counts.csv"))
+counts$site <- m$geolocation.name..region.[idx]
+#write.csv(counts, here("results/counts.csv"))
 
 # make a nicer coverage file too
 
 cvr <- as.data.frame(t(cover))
-names(cvr) <- ifelse(omicron$mutation=='None', 
-                     gsub("~\\|", "", omicron$label), 
-                     omicron$mutation)
-row.names(cvr) <- counts$sample
+names(cvr) <- names(counts)[1:ncol(cvr)]
+#row.names(cvr) <- counts$sample
 
 write.csv(cvr, here("results/cvr.csv"))
 
 # ===============================
 # try out binomial regression test
+b529 <- which(fin$lineage == 'B.1.1.529')
+ba1 <- which(fin$lineage=='BA.1' | fin$lineage=='B.1.1.529')
+ba2 <- which(fin$lineage=='BA.2' | fin$lineage=='B.1.1.529')
 
-y <- as.integer(counts[40, 1:16])
-n <- as.integer(cvr[40, 1:16])
-fit <- glm(cbind(y, n) ~ 1, family='binomial')
-exp(fit$coef) / (1+exp(fit$coef))  # probability
+# sort by site and collection date
+idx <- order(counts$site, counts$coldate)
+counts <- counts[idx, ]
+cvr <- cvr[idx, ]
 
-probs <- c()
-lo <- c()
-hi <- c()
-for (i in 1:nrow(counts)) {
-  y <- as.integer(counts[i, 1:16])  # number of "successes"
-  n <- as.integer(cvr[i, 1:16])  # number of trials
-  p <- tryCatch({
-    fit <- glm(cbind(y, n) ~ 1, family='binomial')
-    exp(fit$coef) / (1+exp(fit$coef))  # probability
+est.freq <- function(midx) {
+  probs <- c()
+  lo <- c()
+  hi <- c()
+  for (i in 1:nrow(counts)) {
+    y <- as.integer(counts[i, midx])  # number of "successes"
+    n <- as.integer(cvr[i, midx])  # number of trials
+    p <- tryCatch({
+      fit <- glm(cbind(y, n-y) ~ 1, family='binomial')
+      exp(fit$coef) / (1+exp(fit$coef))  # probability
     }, 
     error = function(cond) { 
       return (NA) 
     })
-  
-  probs <- c(probs, p)
-  if (is.na(p)) {
-    lo <- c(lo, NA)
-    hi <- c(hi, NA)
-  } else {
-    suppressMessages(ci <- confint(fit))
-    lo <- c(lo, exp(ci[1]) / (1+exp(ci[1])))
-    hi <- c(hi, exp(ci[2]) / (1+exp(ci[2])))
-  }
-}
-
-
-pdf(file="guelph.pdf", width=6, height=8)
-par(mar=c(5,5,1.5,1.5))
-idx <- which(counts$lab=='guelph')
-barplot(as.numeric(probs)[idx], horiz=T, main="Guelph", adj=0, cex.main=1.5, 
-        names.arg=gsub("\\.[a-z0-9]+$", "", counts$sample[idx]), 
-        las=1, cex.names=0.6, xlim=c(0, 0.05), 
-        xlab="Estimated frequency", cex.lab=1.2)
-segments(x0=lo[idx], x1=hi[idx], y0=(1:length(idx)-0.45)*1.2, lwd=2)
-abline(v=0.01, lty=2)
-dev.off()
-
-pdf(file="waterloo.pdf", width=6, height=8)
-par(mar=c(5,5,1.5,1.5))
-idx <- which(counts$lab=='waterloo')
-barplot(as.numeric(probs)[idx], horiz=T, main="Waterloo", adj=0, cex.main=1.5, 
-        names.arg=gsub("\\.[a-z0-9]+$", "", counts$sample[idx]), 
-        las=1, cex.names=0.6, xlim=c(0, 0.05),
-        xlab="Estimated frequency", cex.lab=1.2)
-segments(x0=lo[idx], x1=hi[idx], y0=(1:length(idx)-0.45)*1.2, lwd=2)
-abline(v=0.01, lty=2)
-dev.off()
-
-pdf(file="western.pdf", width=6, height=8)
-par(mar=c(5,5,1.5,1.5))
-idx <- which(counts$lab=='western')
-barplot(as.numeric(probs)[idx], horiz=T, main="Western", adj=0, cex.main=1.5, 
-        names.arg=gsub("\\.[a-z0-9]+$", "", counts$sample[idx]), 
-        las=1, cex.names=0.6, xlim=c(0, 0.05),
-        xlab="Estimated frequency", cex.lab=1.2)
-segments(x0=lo[idx], x1=hi[idx], y0=(1:length(idx)-0.45)*1.2, lwd=2)
-abline(v=0.01, lty=2)
-dev.off()
-
-
-# ============================
-
-# make a nice plot
-
-
-# ============================
-
-pdf(here("results/detection.pdf"), width=6, height=6)
-
-par(mar=c(5,7,3,1))
-plot(NA, xlim=c(1e-5, 0.1), ylim=c(0.5, nrow(omicron)+0.5), 
-     log='x', xaxt='n', yaxt='n', xlab='Frequency', ylab='')
-abline(v=c(1e-4, 1e-3, 0.01, 0.1), col='grey80')
-title(ylab="Mutation", line=5)
-#axis(side=1, at=c(1e-5, 1e-4, 1e-3, 0.01, 0.1), 
-#     label=c(0, expression(10^-4), expression(10^-3), "0.01", '0.1'))
-axis(side=1, at=c(1e-5, 1e-4, 1e-3, 0.01, 0.1),
-     label=c("Zero", "0.01%", "0.1%", "1%", "10%"))
-axis(side=2, at=1:nrow(omicron), 
-     label=ifelse(omicron$mutation=="None", omicron$label, omicron$mutation), 
-     las=1, cex.axis=0.6)
-abline(v=2.5e-5, lwd=1.5)
-
-col <- as.integer(as.factor(
-  sapply(mfiles, function(x) strsplit(x, "/")[[1]][1])
-  ))
-pal <- c(
-  "#C20430",  # guelph
-  "#E4B429",  # waterloo
-  "#4F2683"  # western
-  )
-
-for (i in 1:nrow(omicron)) {
-  x <- as.numeric(maps[i, ])
-  z <- as.numeric(cover[i,])
-  size <- x*z
-  # only claim zero if we have coverage
-  x[z > 10 & is.na(x)] <- 1e-5
-  #print(x)
-  #size <- sapply(log10(z), function(xx) max(0, xx))
-  
-  points(x=x, y=rep(i, length(x)), cex=ifelse(is.na(size), log10(z), sqrt(size)), 
-         col=pal[col], pch=ifelse(x==1e-5, 0, 1), lwd=ifelse(x==1e-5, 1, 2))
-  text(x=1.6e-5, y=i, label=sum(x==1e-5, na.rm=T), adj=0, cex=0.6)
-}
-
-par(xpd=NA)
-points(x=c(5e-5, 1.5e-4, 5e-4), y=rep(18, 3), 
-       cex=sqrt(c(1, 5, 20)))
-text(x=c(6e-5, 2e-4, 8e-4), y=rep(18, 3), 
-     label=c(1, 5, "20 reads"), cex=0.7, adj=0)
-par(xpd=FALSE)
-
-dev.off()
-
-
-
-guelph <- as.data.frame(maps[,grepl("guelph", colnames(maps))])
-names(guelph) <- gsub("guelph/.+/(.+)\\.mapped\\.csv", "\\1", names(guelph))
-
-# modify this data frame so that NA mutations with decent coverage are zero
-mask <- as.data.frame(cover[,grepl("guelph", colnames(cover))])
-mask <- (mask > 0)
-for (i in 1:nrow(guelph)) {
-  for (j in 1:ncol(guelph)) {
-    if (is.na(guelph[i,j])) {
-      if (mask[i,j]) {
-        guelph[i,j] <- 0
-      }
+    
+    probs <- c(probs, p)
+    if (is.na(p)) {
+      lo <- c(lo, NA)
+      hi <- c(hi, NA)
+    } else {
+      suppressMessages(ci <- confint(fit))
+      lo <- c(lo, exp(ci[1]) / (1+exp(ci[1])))
+      hi <- c(hi, exp(ci[2]) / (1+exp(ci[2])))
     }
   }
+  return (list(probs=probs, lo=lo, hi=hi))
 }
 
-gcounts <- guelph * cover[,grepl("guelph", colnames(cover))]
-
-write.csv(gcounts, here("results/guelph-counts.csv"))
 
 
-meta <- read.csv(here("uploads/guelph/20211105_151243/metadata_guelph_20211105_151243.csv"))
+pdf(file="waterloo.pdf", width=15, height=5)
+par(mar=c(5,8,1,1), mfrow=c(1,3), cex=1)
+
+res <- est.freq(b529)
+barplot(as.numeric(res$probs), horiz=T, main="B.1.1.529", adj=0, cex.main=1.5, 
+        names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        las=1, cex.names=0.6, xlim=c(0, 0.05),
+        xlab="Estimated frequency", cex.lab=1.2,
+        col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
+segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
+abline(v=0.01, lty=2)
+
+res <- est.freq(ba1)
+barplot(as.numeric(res$probs), horiz=T, main="BA.1", adj=0, cex.main=1.5, 
+        names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        las=1, cex.names=0.6, xlim=c(0, 0.05),
+        xlab="Estimated frequency", cex.lab=1.2,
+        col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
+segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
+abline(v=0.01, lty=2)
+
+res <- est.freq(ba2)
+barplot(as.numeric(res$probs), horiz=T, main="BA.2", adj=0, cex.main=1.5, 
+        names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        las=1, cex.names=0.6, xlim=c(0, 0.05),
+        xlab="Estimated frequency", cex.lab=1.2,
+        col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
+segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
+abline(v=0.01, lty=2)
+
+dev.off()
+
+
 
 
