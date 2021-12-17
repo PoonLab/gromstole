@@ -1,11 +1,138 @@
 \documentclass{article}
 
-\title{GromStole: A Pipeline for Variant Detection in Wastewater Samples}
+\usepackage[margin=1.15in]{geometry}
+
+\title{GromStole: A Pipeline for SARS-CoV-2 Variant Detection in Wastewater Samples}
 \author{Art Poon, Devan Becker, Gopi Gugan, Erin Brintnell, Art Poon (again)}
 \date{\today}
+
+
+% Tighter lists
+\newenvironment{tightemize}
+{ \begin{itemize}
+    \setlength{\itemsep}{0pt}
+    \setlength{\parskip}{0pt}
+    \setlength{\parsep}{0pt}     }
+{ \end{itemize}                  } 
+
 
 \begin{document}
 \maketitle
 
+Right now this is a skeleton. The plan is to expand each bullet into \emph{exactly} one paragraph.
+
+\section{Introduction}
+
+\begin{tightemize}
+    \item Background info and importance
+    \item Other papers that have done wastewater monitoring for detection/amount of any virus
+    \item Other papers that have done wastewater monitoring for detection/amount of SARS-CoV-2
+    \item Other papers that have done wastewater monitoring for \emph{variants}
+    \item Statement of our goals, including output format and basic modelling
+\end{tightemize}
+
+
+
+
+
+
+\section{Data Processing}
+
+\subsection{Input Format}
+
+\begin{tightemize}
+    \item Context of data
+    \item Description of paired-end Illumina FASTQ files 
+    \item Required modifications for other platforms
+\end{tightemize}
+
+\subsection{Parsing FASTQ files}
+
+\begin{tightemize}
+    \item Description of desired output format
+    \item Parsing into features by mapping to reference
+    \item Dealing with paired-end data: mutations in one or both
+    \item Dealing with paired-end data: coverage
+    \item Calculating mutation frequency and coverage
+    \item Implementation in \texttt{minimap2.py} (which is adapted from \texttt{covizu})
+    \item Summary of output format and current implementation with \texttt{autoprocess.py}
+\end{tightemize}
+
+\begin{figure}[ht!]
+\vspace{2cm}
+\centering
+\emph{Diagram: Two or three pairs in a FASTQ file, including some low quality score bases $\rightarrow$ Aligned to reference(including coverage) $\rightarrow$ Features and Coverage}
+\vspace{2cm}
+\caption{Extracting features from paired-end FASTQ files.}
+\label{fig:feature_diagram}
+\end{figure}
+
+\subsection{Mutation Frequency}
+
+
+\begin{tightemize}
+    \item Motivation for getting this data
+\end{tightemize}
+
+\subsubsection{Background Frequency}
+\begin{tightemize}
+    \item Motivation for getting this data
+    \item Accessing and processing GISAID data into mutations lists
+    \item Calculating background frequencies (per-variant)
+\end{tightemize}
+
+\subsubsection{Variant-Specific Mutations}
+
+\begin{tightemize}
+    \item Obtaining mutations present in a variant from \texttt{minimap2} (noting that they are not enough to uniquely determine that variant))
+    \item Obtaining mutations from PANGO when GISAID is not quite labelled right
+    \item Comparison of background frequency to mutations (Omicron(95, 5)). 
+    \item Including sub-lineages
+\end{tightemize}
+
+\begin{figure}[ht!]
+\vspace{2cm}
+\centering
+\emph{Scatterplot of background frequency versus omicron frequency, coloured according to Omicronians(95,5), possibly with different shapes to denote the sub-lineages.}
+\vspace{2cm}
+\caption{Frequency of mutations in all variants versus in one specific variant. By comparing these two frequencies, we are able to specify variants that should only be common in our variant of interest.}
+\label{fig:mutation_frequency}
+\end{figure}
+
+
+
+
+
+
+\section{Single Variant Detection}
+
+\begin{tightemize}
+    \item Motivation for Binomial GLMs
+    \item Description of Binomial GLMs (incl. confidence intervals)
+    \item Conservative 1\% sequencing error as our null hypothesis; not testing boundary of parameter space.
+    \item Batch processing of GLMs
+    \item Sensitivity analysis (using multiple definitions of variant-specific mutations, e.g. Omicronian(90, 10)).
+\end{tightemize}
+
+
+
+
+
+
+\section{Application to Available Data}
+
+\begin{tightemize}
+    \item Description of our particular data collection methods and project goals
+    \item With permission, description of the results for Omicron in samples with good metadata.
+\end{tightemize}
+
+\begin{figure}[ht!]
+\vspace{2cm}
+\centering
+\emph{Bar plots with confidence bands for GLM results, ordered by time.}
+\vspace{2cm}
+\caption{Results of the binomial GLM on our available data. The proportion of observed Omicron mutations appears to have increased slightly over time, but still does not reach the 1\% proportion required for us to confidently assert the presence of Omicron.}
+\label{fig:binomial_results}
+\end{figure}
 
 \end{document}
