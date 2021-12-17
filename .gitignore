@@ -50,3 +50,7 @@ reports/*.log
 reports/*.html
 results/*.pdf
 
+# ms - nothing but tex
+methods_ms/*
+!methods_ms/gromstole_methods.tex
+
