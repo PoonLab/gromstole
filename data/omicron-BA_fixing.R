@@ -1,4 +1,5 @@
 # Fixing Omicron data
+setwd('~/git/gromstole')
 
 omicron <- read.csv("https://github.com/cov-lineages/pango-designation/files/7668225/Omicron_BA.1_BA.2_mutations.csv",
     stringsAsFactors = FALSE)
