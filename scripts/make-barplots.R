@@ -6,8 +6,9 @@ args <- commandArgs(trailingOnly = TRUE)
 if (length(args) == 0) {
   stop("Usage: Rscript omicron-reporting.R [path to <results/run>]")
 }
-cat(basename(args[1]))
-stop()
+run.dir <- args[1]
+
+# TODO: take mutation list CSV as second argument (replacing `fin`)
 
 # load B.1.1.529/BA.1/BA.2 mutations list
 omi <- read.csv('data/omicron-BA-final.csv')
@@ -17,20 +18,15 @@ bkgd <- read.csv('data/get-BA1BA2-uniques.csv')
 
 # select mutations that are present in at most 5% of any other lineage
 x <- apply(bkgd[,3:ncol(bkgd)], 2, max)
-# mismatch: row 36 of omi is a duplicate; not present in columns of bkgd
-# 
-#x <- c(x[1:35], 0, x[36:length(x)])
-#omi <- omi[-36, ]
 fin <- omi[which(x<0.05),]
-#write.csv(fin, file="persei8.csv")
 fin$label <- paste(fin$type, fin$pos, fin$alt, sep='|')
 
 
 # locate data files
 require(here)
-mfiles <- list.files(here(args[1]), full.names = TRUE,
+mfiles <- list.files(here(run.dir), full.names = TRUE,
                      pattern="*.mapped.csv$", recursive=TRUE)
-cfiles <- list.files(here(args[1]), full.names = TRUE,
+cfiles <- list.files(here(run.dir), full.names = TRUE,
                      pattern="*.coverage.csv$", recursive=TRUE)  
 
 if(length(mfiles) == 0) 
@@ -141,45 +137,46 @@ est.freq <- function(midx) {
 }
 
 
+# TODO: generalize to mutation list
 b529 <- which(fin$lineage=='B.1.1.529')
 ba1 <- which(fin$lineage=='BA.1' | fin$lineage=='B.1.1.529')
 ba2 <- which(fin$lineage=='BA.2' | fin$lineage=='B.1.1.529')
 
 
 # set output for PDF
-if (guelph) {
-  pdf(file="guelph2.pdf", width=15, height=5)  
-} else {
-  # waterloo
-  pdf(file="waterloo.pdf", width=15, height=5)
-}
+# TODO: filename should indicate mutation list
+pdf(file=file.path(run.dir, "barplots.pdf"), width=15, height=5)  
+
 
 par(mar=c(5,8,1,1), mfrow=c(1,3), cex=1)
 
 res <- est.freq(b529)
 barplot(as.numeric(res$probs), horiz=T, main="B.1.1.529", adj=0, cex.main=1.5, 
-                   names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
-                   las=1, cex.names=0.6, xlim=c(0, 0.05),
-                   xlab="Estimated frequency", cex.lab=1.2,
-                   col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
+        names.arg=counts$sample,
+        #names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        las=1, cex.names=0.6, xlim=c(0, 0.05),  #max(res$hi)),
+        xlab="Estimated frequency", cex.lab=1.2,
+        col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
 segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
 abline(v=0.01, lty=2)
 
 res <- est.freq(ba1)
 barplot(as.numeric(res$probs), horiz=T, main="BA.1", adj=0, cex.main=1.5, 
-                   names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
-                   las=1, cex.names=0.6, xlim=c(0, 0.05),
-                   xlab="Estimated frequency", cex.lab=1.2,
-                   col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
+        #names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        names.arg=counts$sample,
+        las=1, cex.names=0.6, xlim=c(0, 0.05), #max(res$hi)),
+        xlab="Estimated frequency", cex.lab=1.2,
+        col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
 segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
 abline(v=0.01, lty=2)
- 
+
 res <- est.freq(ba2)
 barplot(as.numeric(res$probs), horiz=T, main="BA.2", adj=0, cex.main=1.5, 
-                   names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
-                   las=1, cex.names=0.6, xlim=c(0, 0.05),
-                   xlab="Estimated frequency", cex.lab=1.2,
-                   col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
+        #names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        names.arg=counts$sample,
+        las=1, cex.names=0.6, xlim=c(0, 0.05),  #max(res$hi)),
+        xlab="Estimated frequency", cex.lab=1.2,
+        col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
 segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
 abline(v=0.01, lty=2)
  
