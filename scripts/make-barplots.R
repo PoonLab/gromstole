@@ -104,18 +104,24 @@ counts$lab <- sapply(cfiles, function(x) {
 
 # parse metadata, dealing with varying header labels and date formats
 require(lubridate)
+counts$coldate <- rep(NA, times=nrow(counts))
+counts$site <- rep(NA, times=nrow(counts))
+
 metafile <- list.files(here(gsub("results", "uploads", run.dir)), full.names = TRUE,
                      pattern="meta.+\\.csv$", recursive=TRUE)
 if (length(metafile) == 0) {
   warning("Failed to locate metadata CSV file for this run.")
 } else {
   meta <- read.csv(metafile[1])
-  idx <- match(counts$sample, meta[,which(grepl("sample\\.ID", names(meta)))])
+  #idx <- match(counts$sample, meta[,which(grepl("sample\\.ID", names(meta)))])
+  r1.fn <- meta[,which(grepl("[Rr]1\\.fastq\\.filename", names(meta)))]
+  idx <- match(counts$sample, sapply(r1.fn, function(x) {
+    strsplit(x, "_")[[1]][1]
+    }))
   
   # parse sample collection dates
   date.col <- which(grepl("collection\\.date", names(meta)))
   if (is.na(date.col)) {
-    counts$coldate <- rep(NA, times=nrow(meta))
     warning("Failed to locate sample collection date column.")
   } else {
     date.str <- meta[idx, date.col]
@@ -125,7 +131,6 @@ if (length(metafile) == 0) {
   # parse sampling location
   loc.col <- which(grepl("location.name", names(meta)))
   if (is.na(loc.col)) {
-    counts$site <- rep(NA, times=nrow(meta))
     warning("Failed to locate sampling location in metadata")
   } else {
     counts$site <- substr(meta[idx, loc.col], 1, 10)
@@ -178,14 +183,20 @@ ba2 <- which(fin$lineage=='BA.2' | fin$lineage=='B.1.1.529')
 
 # set output for PDF
 # TODO: filename should indicate mutation list
-pdf(file=file.path(run.dir, "barplots.pdf"), width=15, height=5)  
+pdf(file=file.path(run.dir, "barplots.pdf"), width=15, height=max(5, nrow(counts)/6))
 
+if (all(is.na(counts$site))) {
+  names.arg <- counts$sample
+} else {
+  names.arg <- paste(counts$site, format(counts$coldate, "%b %d"), 
+                     counts$sample)  
+}
 
 par(mar=c(5,8,1,1), mfrow=c(1,3), cex=1)
 
 res <- est.freq(b529)
 barplot(as.numeric(res$probs), horiz=T, main="B.1.1.529", cex.main=1.3, 
-        names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        names.arg=names.arg,
         las=1, cex.names=0.6, xlim=c(0, 1),  #max(res$hi, na.rm=T)),
         xlab="Estimated frequency", cex.lab=1.2,
         col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
@@ -194,7 +205,7 @@ abline(v=0.01, lty=2)
 
 res <- est.freq(ba1)
 barplot(as.numeric(res$probs), horiz=T, main="BA.1", cex.main=1.3, 
-        names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        names.arg=names.arg,
         las=1, cex.names=0.6, xlim=c(0, 1), #max(res$hi, na.rm=T)),
         xlab="Estimated frequency", cex.lab=1.2,
         col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
@@ -203,7 +214,7 @@ abline(v=0.01, lty=2)
 
 res <- est.freq(ba2)
 barplot(as.numeric(res$probs), horiz=T, main="BA.2", cex.main=1.3, 
-        names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        names.arg=names.arg,
         las=1, cex.names=0.6, xlim=c(0, 1), #max(res$hi, na.rm=T)),
         xlab="Estimated frequency", cex.lab=1.2,
         col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
