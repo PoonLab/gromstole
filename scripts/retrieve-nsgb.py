@@ -12,10 +12,11 @@ import csv
 import subprocess
 import re
 import argparse
+from minimap2 import encode_diffs
 
 
 def parse_metadata(metaurl):
-    # extract PANGO lineage assignments from metadata
+    """ extract PANGO lineage assignments from metadata """
     lineages = {}  # header : PANGO lineage
     handle = gzip.open(request.urlopen(metaurl), 'rt')
     count = 0
@@ -26,10 +27,8 @@ def parse_metadata(metaurl):
     return lineages
 
 
-
-
-
 def batcher(handle, size=100):
+    """ Break FASTA data into batches to stream to minimap2 """
     stdin = ''
     for i, record in iter_fasta(handle):
         stdin += '>{0}\n{1}\n'.format(*record)
@@ -50,8 +49,8 @@ def minimap2(stdin, refpath, path='minimap2', nthread=1, minlen=29000):
         if line == '' or line.startswith('@'):
             # split on \n leaves empty line; @ prefix header lines
             continue
-        qname, flag, rname, rpos, _, cigar, _, _, _, seq = \
-            line.strip('\n').split('\t')[:10]
+        qname, flag, rname, rpos, _, cigar, _, _, _, seq, qual = \
+            line.strip('\n').split('\t')[:11]
 
         if rname == '*' or ((int(flag) & 0x800) != 0):
             # did not map, or supplementary alignment
@@ -67,15 +66,17 @@ def minimap2(stdin, refpath, path='minimap2', nthread=1, minlen=29000):
             raise RuntimeError('Invalid CIGAR string: {!r}.'.format(cigar))
 
         rpos = int(rpos) - 1  # convert to 0-index
-        yield qname, rpos, cigar, seq
+        yield qname, rpos, cigar, seq, qual
 
 
-def count_mutations(sequrl, lineages):
+def count_mutations(sequrl, lineages, refpath):
     # stream genomes in batches and extract and count differences
     results = {}
     handle = lzma.open(request.urlopen(sequrl), 'rt')
     for batch in batcher(handle):
-        for qname, rpos, cigar, seq in minimap2(batch):
+        for row in minimap2(batch, refpath):
+            qname, diffs, missing = encode_diffs(row)
+
             # retrieve PANGO lineage assignment
             lineage = lineages.get(qname, None)
             if lineage is None:
@@ -83,6 +84,11 @@ def count_mutations(sequrl, lineages):
 
             if lineage not in results:
                 results.update({lineage: {'mutations': {}, 'count': 0}})
+
+            results[lineage]['count'] += 1
+            for diff in diffs:
+
+    return results
 
 
 if __name__ == "__main__":
@@ -95,4 +101,5 @@ if __name__ == "__main__":
     parser.add_argument("--refpath", default="data/NC_045512.fa", help="path to reference genome FASTA")
     args = parser.parse_args()
 
-    
+    lineages = parse_metadata(args.metaurl)
+    results = count_mutations(args.sequrl, lineages, refpath=args.refpath)
