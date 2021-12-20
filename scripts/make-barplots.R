@@ -25,9 +25,11 @@ fin$label <- paste(fin$type, fin$pos, fin$alt, sep='|')
 # locate data files
 require(here)
 mfiles <- list.files(here(run.dir), full.names = TRUE,
-                     pattern="*.mapped.csv$", recursive=TRUE)
+                     pattern=".+\\.mapped\\.csv$")
+mfiles <- mfiles[!grepl("Undetermined", basename(mfiles))]
 cfiles <- list.files(here(run.dir), full.names = TRUE,
-                     pattern="*.coverage.csv$", recursive=TRUE)  
+                     pattern=".+\\.coverage\\.csv$")  
+cfiles <- cfiles[!grepl("Undetermined", basename(cfiles))]
 
 if(length(mfiles) == 0) 
   stop("No *.mapped.csv files found!")
@@ -68,7 +70,6 @@ maps <- sapply(mfiles, function(f) {
   mapped$frequency[index]
 })
 row.names(maps) <- fin$label
-
 maps <- as.data.frame(maps)
 
 # set column names to sample identifiers
@@ -91,8 +92,6 @@ for (i in 1:nrow(maps)) {
 
 # convert to integer counts
 counts <- as.data.frame(t(maps*cover))
-
-
 row.names(counts) <- NULL
 names(counts) <- fin$mut_aa
 counts$sample <- names(maps)
@@ -103,10 +102,44 @@ counts$lab <- sapply(cfiles, function(x) {
 })
 
 
-# TODO: parse metadata, dealing with varying header labels and date formats
+# parse metadata, dealing with varying header labels and date formats
+require(lubridate)
+metafile <- list.files(here(gsub("results", "uploads", run.dir)), full.names = TRUE,
+                     pattern="meta.+\\.csv$", recursive=TRUE)
+if (length(metafile) == 0) {
+  warning("Failed to locate metadata CSV file for this run.")
+} else {
+  meta <- read.csv(metafile[1])
+  idx <- match(counts$sample, meta[,which(grepl("sample\\.ID", names(meta)))])
+  
+  # parse sample collection dates
+  date.col <- which(grepl("collection\\.date", names(meta)))
+  if (is.na(date.col)) {
+    counts$coldate <- rep(NA, times=nrow(meta))
+    warning("Failed to locate sample collection date column.")
+  } else {
+    date.str <- meta[idx, date.col]
+    counts$coldate <- as.Date(parse_date_time(date.str, c("mdy", "dmy", "ymd")))
+  }
+  
+  # parse sampling location
+  loc.col <- which(grepl("location.name", names(meta)))
+  if (is.na(loc.col)) {
+    counts$site <- rep(NA, times=nrow(meta))
+    warning("Failed to locate sampling location in metadata")
+  } else {
+    counts$site <- substr(meta[idx, loc.col], 1, 10)
+  }
+}
 
 cvr <- as.data.frame(t(cover))
 names(cvr) <- names(counts)[1:ncol(cvr)]
+
+
+# sort by site and collection date
+idx <- order(counts$site, counts$coldate, decreasing=T)
+counts <- counts[idx, ]
+cvr <- cvr[idx, ]
 
 
 est.freq <- function(midx) {
@@ -151,30 +184,27 @@ pdf(file=file.path(run.dir, "barplots.pdf"), width=15, height=5)
 par(mar=c(5,8,1,1), mfrow=c(1,3), cex=1)
 
 res <- est.freq(b529)
-barplot(as.numeric(res$probs), horiz=T, main="B.1.1.529", adj=0, cex.main=1.5, 
-        names.arg=counts$sample,
-        #names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
-        las=1, cex.names=0.6, xlim=c(0, 0.05),  #max(res$hi)),
+barplot(as.numeric(res$probs), horiz=T, main="B.1.1.529", cex.main=1.3, 
+        names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        las=1, cex.names=0.6, xlim=c(0, 1),  #max(res$hi, na.rm=T)),
         xlab="Estimated frequency", cex.lab=1.2,
         col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
 segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
 abline(v=0.01, lty=2)
 
 res <- est.freq(ba1)
-barplot(as.numeric(res$probs), horiz=T, main="BA.1", adj=0, cex.main=1.5, 
-        #names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
-        names.arg=counts$sample,
-        las=1, cex.names=0.6, xlim=c(0, 0.05), #max(res$hi)),
+barplot(as.numeric(res$probs), horiz=T, main="BA.1", cex.main=1.3, 
+        names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        las=1, cex.names=0.6, xlim=c(0, 1), #max(res$hi, na.rm=T)),
         xlab="Estimated frequency", cex.lab=1.2,
         col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
 segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
 abline(v=0.01, lty=2)
 
 res <- est.freq(ba2)
-barplot(as.numeric(res$probs), horiz=T, main="BA.2", adj=0, cex.main=1.5, 
-        #names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
-        names.arg=counts$sample,
-        las=1, cex.names=0.6, xlim=c(0, 0.05),  #max(res$hi)),
+barplot(as.numeric(res$probs), horiz=T, main="BA.2", cex.main=1.3, 
+        names.arg=paste(counts$site, format(counts$coldate, "%b %d"), counts$sample), 
+        las=1, cex.names=0.6, xlim=c(0, 1), #max(res$hi, na.rm=T)),
         xlab="Estimated frequency", cex.lab=1.2,
         col=ifelse(res$lo > 0.01, 'salmon', 'grey'))
 segments(x0=res$lo, x1=res$hi, y0=(1:length(res$probs)-0.45)*1.2, lwd=2)
