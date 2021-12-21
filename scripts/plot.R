@@ -1,6 +1,6 @@
 #setwd('~/git/wastewater/results/')
-#setwd('~/git/gromstole/results/western/211028_M07822_0001_000000000-K3FK/')
-setwd('~/git/gromstole/results/waterloo/run3/')
+setwd('~/git/gromstole/results/western/211203_M07822_0003_000000000-K36DC/')
+#setwd('~/git/gromstole/results/waterloo/run3/')
 
 mapfiles <- Sys.glob('*.mapped.csv')
 covfiles <- Sys.glob('*.coverage.csv')
