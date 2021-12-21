@@ -33,6 +33,7 @@ for(lab in labs) {
     samples <- unique(cocovoc[cocovoc$lab == lab])
 
     for(sample in samples){
+        print(paste0(lab, ", " sample))
         cocovoc1 <- filter(cocovoc, sample == sample, lab == lab)
         variantmat1 <- variantmat[, which(!is.na(cocovoc1$coverage2))]
         cocovoc1 <- cocovoc1[!is.na(cocovoc1$coverage2), ]
