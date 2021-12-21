@@ -30,7 +30,8 @@ for (i in seq_len(nrow(res_df))) {
     failure <- thiscoco$coverage - success
 
     if (sum(success, na.rm = TRUE) < 3 | 
-            sum(failure, na.rm = TRUE) < 10) {
+            sum(failure, na.rm = TRUE) < 10 |
+            any(success > failure, na.rm = TRUE)) {
         res_df$status[i] <- "Insufficient data"
         next
     }
@@ -44,13 +45,15 @@ for (i in seq_len(nrow(res_df))) {
 
 res_df
 
-pdf(file = here("results", "all-Langley.pdf"), width = 8, height = 10)
+pdf(file = here("results", "all-Langley.pdf"), width = 10, height = 10)
 ggplot(res_df) + theme_bw() +
     aes(x = sample, y = prop, ymin = lo, ymax = hi) +
-    geom_errorbar() +
+    geom_errorbar(aes(colour = lo > 0.01)) +
+    scale_colour_manual(values = 1:2) +
     geom_point() +
     geom_hline(yintercept = 0.01, linetype = "dashed",
         colour = "grey") +
     facet_wrap(~lab, scales = "free_y") +
-    coord_flip()
+    coord_flip() +
+    labs(colour = "CI above 0.01?")
 dev.off()

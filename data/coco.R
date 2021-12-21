@@ -1,9 +1,10 @@
-library(dplyr)
+suppressPackageStartupMessages(library(dplyr))
 library(tidyr)
 
 # load mutations specific to Omicron variant
 omicron <- read.csv('omicron-specific.csv', 
-  row.names = 1, stringsAsFactors = FALSE)
+  row.names = NULL, stringsAsFactors = FALSE)
+omicron <- omicron[!is.na(omicron$pos),]
 omicron$X <- NULL  # remove duplicate row names
 omicron$label <- paste(omicron$type, omicron$pos, omicron$alt, sep="|")
 
@@ -64,9 +65,9 @@ for (i in 1:nrow(maps)) {
 
 counts <- as.data.frame(t(maps*cover))
 row.names(counts) <- NULL
-names(counts) <- ifelse(omicron$mutation=='None', 
-    gsub("~\\|", "", omicron$label), 
-    omicron$mutation)
+names(counts) <- ifelse(omicron$mut_aa=='None', 
+    omicron$label, 
+    omicron$mut_aa)
 counts$sample <- names(maps)
 # switching to `here` library broke this line
 counts$lab <- sapply(cfiles, function(x) {
@@ -95,9 +96,9 @@ counts <- left_join(counts, m3, by = "sample")
 
 # make a nicer coverage file too
 cvr <- as.data.frame(t(cover))
-names(cvr) <- ifelse(omicron$mutation=='None', 
-    gsub("~\\|", "", omicron$label), 
-    omicron$mutation)
+names(cvr) <- ifelse(omicron$mut_aa=='None', 
+    omicron$label, 
+    omicron$mut_aa)
 cvr$sample <- counts$sample
 
 # Long (tidy) data format

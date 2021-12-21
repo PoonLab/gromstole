@@ -15,7 +15,7 @@ x <- apply(bkgd[,3:ncol(bkgd)], 2, max)
 # mismatch: row 36 of omi is a duplicate; not present in columns of bkgd
 # 
 #x <- c(x[1:35], 0, x[36:length(x)])
-omi <- omi[-36, ]
+#omi <- omi[-36, ]
 fin <- omi[which(x<0.05),]
 #write.csv(fin, file="persei8.csv")
 fin$label <- paste(fin$type, fin$pos, fin$alt, sep='|')
