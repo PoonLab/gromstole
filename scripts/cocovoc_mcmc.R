@@ -21,7 +21,7 @@ model{
 }
 "
 
-variantmat <- read.csv(here("data", "variantmatrix_med.csv"), row.names = 1)
+variantmat <- read.csv(here("data", "variantmat_med.csv"), row.names = 1)
 variantmat <- as.matrix(variantmat)
 dim(variantmat)
 rankMatrix(variantmat) # Not full rank - some variants will be unidentifiable
@@ -30,11 +30,11 @@ cocovoc <- read.csv(here("data", "cocovoc_med.csv"), stringsAsFactors = FALSE)
 
 labs <- unique(cocovoc$lab)
 for(lab in labs) {
-    samples <- unique(cocovoc[cocovoc$lab == lab])
+    samples <- unique(cocovoc$sample[cocovoc$lab == lab])
 
     for(sample in samples){
-        print(paste0(lab, ", " sample))
-        cocovoc1 <- filter(cocovoc, sample == sample, lab == lab)
+        print(paste0(lab, ", ", sample))
+        cocovoc1 <- cocovoc[cocovoc$sample == sample & cocovoc$lab == lab,]
         variantmat1 <- variantmat[, which(!is.na(cocovoc1$coverage2))]
         cocovoc1 <- cocovoc1[!is.na(cocovoc1$coverage2), ]
         cocovoc1$count <- round(cocovoc1$count)
