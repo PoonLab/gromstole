@@ -22,7 +22,6 @@ Please expand this list!
   * reads mapped to reference genome using CLC genomics software v7.5
   * compared nonsynonymous mutations to "classifying mutations that match with 30 SARS-CoV-2 variants circulating in France
 
-  > Fairly crummy bioinformatics, nothing much of note here
 
 - Crits-Christoph A, Kantor RS, Olm MR, Whitney ON, Al-Shayeb B, Lou YC, Flamholz A, Kennedy LC, Greenwald H, Hinkle A, Hetzel J. Genome sequencing of sewage detects regionally prevalent SARS-CoV-2 variants. MBio. 2021 Jan 19;12(1):e02703-20.
   * "Sequencing viral concentrates and RNA extracted from wastewater can identify multiple SARS-CoV-2 genotypes at various abundances konwn to be present in communities, as well as additional genotypic variants not yet observed in local clinical sequencing efforts."
@@ -62,7 +61,7 @@ Please expand this list!
   * only used non-synonymous substitutions for quantification
     * frequencies of B.1.1.7 signature substitutions were resampled with replacement, averaged per wastewater sample, smoothed over time by local regression (lowess, Python statsmodels v0.12.1) to construct bootstrap estimates of B.1.1.7 per-day frequency curves
   
-  > developed COJAC (co-occurrence method), worth investigating - can probably ignore local haplotype reconstruction step (one of the authors is a big advocate of this approach)
+  > developed COJAC (co-occurrence method), worth investigating - can probably ignore local haplotype reconstruction step
 
 # Alignment with uncertainty
 
