@@ -85,14 +85,19 @@ def count_mutations(sequrl, lineages, refpath):
             if lineage not in results:
                 results.update({lineage: {'mutations': {}, 'count': 0}})
 
-            results[lineage]['count'] += 1
+            results[lineage]['count'] += 1  # denominator
             for diff in diffs:
+                key = '|'.join(map(str, diff))
+                if key not in results[lineage]['mutations']:
+                    results[lineage]['mutations'].update({key: 0})
+                results[lineage]['mutations'][key] += 1
 
     return results
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("outfile", help="")
     parser.add_argument("--sequrl", help="URL to Nextstrain sequences.fasta.xz file",
                         default="https://data.nextstrain.org/files/ncov/open/sequences.fasta.xz")
     parser.add_argument("--metaurl", help="URL to Nextstrain metadata.tsv.gz file",
@@ -103,3 +108,4 @@ if __name__ == "__main__":
 
     lineages = parse_metadata(args.metaurl)
     results = count_mutations(args.sequrl, lineages, refpath=args.refpath)
+
