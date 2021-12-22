@@ -152,8 +152,15 @@ est.freq <- function() {
   lo <- c()
   hi <- c()
   for (i in 1:nrow(counts)) {
-    y <- as.integer(counts[i, ])  # number of "successes"
+    y <- as.integer(counts[i, 1:ncol(cvr)])  # number of "successes"
     n <- as.integer(cvr[i, ])  # number of trials
+    # Avoid bars that will have huge error bars
+    if(sum(y, na.rm = TRUE) < 3 | max(n[y > 0], na.rm = TRUE) < 15) {
+      probs <- c(probs, NA)
+      lo <- c(lo, NA)
+      hi <- c(hi, NA)
+      next
+    }
     p <- tryCatch({
       fit <- glm(cbind(y, n-y) ~ 1, family='binomial')
       exp(fit$coef) / (1+exp(fit$coef))  # probability
@@ -162,11 +169,11 @@ est.freq <- function() {
       return (NA) 
     })
     probs <- c(probs, p)
-    if (is.na(p)) {
+    if (is.na(p) | p < 1e-5) { # p<1e-5 means confidence intervals fail
       lo <- c(lo, NA)
       hi <- c(hi, NA)
     } else {
-      suppressMessages(ci <- confint(fit))
+      suppressMessages(ci <- tryCatch(confint(fit)))
       lo <- c(lo, exp(ci[1]) / (1+exp(ci[1])))
       hi <- c(hi, exp(ci[2]) / (1+exp(ci[2])))
     }
