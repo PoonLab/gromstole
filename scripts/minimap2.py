@@ -207,9 +207,9 @@ def merge_diffs(diff1, diff2, miss1, miss2):
     miss2 = check_miss(miss2)
 
     lo1 = miss1[0][1]  # miss1 is [(0, lo1), (hi1, 29903)]
-    hi1 = miss1[1][0]
+    hi1 = miss1[len(miss1)-1][0]
     lo2 = miss2[0][1]
-    hi2 = miss2[1][0]
+    hi2 = miss2[len(miss2)-1][0]
 
     if miss1 == miss2:
         # same coverage: only return duplicates
