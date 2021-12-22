@@ -213,15 +213,17 @@ draw.barplot <- function(main, names.arg) {
     for (j in 1:ncol(cvr)) {
       rect(xleft=1.05+0.3*(j-1)/ncol(cvr), xright=1.05+0.3*j/ncol(cvr),
            ybottom=dy*(i-1), ytop=dy*(i), 
-           col=ifelse(cvr[i,j] > 0, 'steelblue', 'white'),
+           #col=ifelse(cvr[i,j] > 0, ifelse(cvr[i,j] > 100, 'steelblue', "lightgrey"), 'white'),
+           col=c("white", "grey", "steelblue1", "steelblue4")[cut(cvr[i,j], breaks = c(-Inf,0,10,100,Inf))],
            border='white', lwd=0.5)
     }
   }
-  text(x=dy, y=dy*(nrow(cvr)+1), adj=0.5, label="Coverage", cex=0.8)
+  text(x=dy, y=dy*(nrow(cvr)+1), adj=0.5, label="Coverage\nGrey>0, blue>10, dark>100", cex=0.8)
   #text(x=u[1], y=u[3], adj=0, label=run.dir, cex=0.5)
   title(xlab=paste(" ", run.dir), outer=TRUE, adj=0, cex.lab=0.5, 
         font=1, line=-1)
   par(xpd=FALSE)
+  abline(h = 0:ncol(cvr)*dy[1]+0.1, col = "gray88", lty = 2)
 }
 
 
