@@ -110,7 +110,7 @@ if (!is.na(metafile)) {
   #idx <- match(counts$sample, meta[,which(grepl("sample\\.ID", names(meta)))])
   r1.fn <- meta[,which(grepl("[Rr]1\\.fastq\\.filename", names(meta)))]
   idx <- match(counts$sample, sapply(r1.fn, function(x) {
-    strsplit(x, "_")[[1]][1]
+    strsplit(as.character(x), "_")[[1]][1]
     }))
   
   # parse sample collection dates
