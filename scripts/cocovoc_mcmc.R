@@ -1,4 +1,5 @@
 library(rjags)
+library(runjags)
 library(ggplot2)
 library(patchwork)
 library(Matrix)
@@ -21,10 +22,13 @@ model{
 }
 "
 
+args <- commandArgs(trailingOnly = TRUE)
+overwrite <- "--overwrite" %in% args
+
 variantmat <- read.csv(here("data", "variantmat_med.csv"), row.names = 1)
 variantmat <- as.matrix(variantmat)
 dim(variantmat)
-rankMatrix(variantmat) # Not full rank - some variants will be unidentifiable
+rankMatrix(variantmat) # variantmat_big is not full rank - some variants will be unidentifiable
 
 cocovoc <- read.csv(here("data", "cocovoc_med.csv"), stringsAsFactors = FALSE)
 
@@ -33,7 +37,13 @@ for(lab in labs) {
     samples <- unique(cocovoc$sample[cocovoc$lab == lab])
 
     for(sample in samples){
-        print(paste0(lab, ", ", sample))
+        filename <- here("results", paste0(lab, "-",sample, "-", "cocovoccoda.csv"))
+        print(filename)
+        if(file.exists(filename) & !overwrite) {
+            print("File exists. Use --overwrite to overwrite all files.")
+            next
+        }
+
         cocovoc1 <- cocovoc[cocovoc$sample == sample & cocovoc$lab == lab,]
         variantmat1 <- variantmat[, which(!is.na(cocovoc1$coverage2))]
         cocovoc1 <- cocovoc1[!is.na(cocovoc1$coverage2), ]
@@ -42,17 +52,29 @@ for(lab in labs) {
         
 
         t0 <- Sys.time()
-        coda1 <- jags.model(file = textConnection(p_model),
-            data = list(count = cocovoc1$count, N = nrow(cocovoc1),
-                coverage = cocovoc1$coverage2 + 1, # DANGER: Currently a hack to make it run
-                P = nrow(variantmat), variantmat = variantmat),
-            n.adapt = 500, n.chains = 2) %>%
-            coda.samples(n.iter = 3000, variable.names = c("p"))
+        coda1 <- tryCatch(
+            run.jags(model = p_model,
+                data = list(count = cocovoc1$count, N = nrow(cocovoc1),
+                    coverage = cocovoc1$coverage2 + 1, # DANGER: Currently a hack to make it run
+                    P = nrow(variantmat), variantmat = variantmat),
+                adapt = 500,
+                burnin = 500, 
+                n.chains = 2,
+                sample = 3000, 
+                thin = 5,
+                monitor = c("p"),
+                method = "rjparallel"),
+            error = function(e) e)
         print(difftime(Sys.time(), t0, units = "mins"))
 
-        codf <- bind_rows(lapply(1:length(coda1), 
+        if("error" %in% class(coda1)) {
+            print(coda1)
+            next
+        }
+
+        codf <- bind_rows(lapply(1:length(coda1$mcmc), 
             function(i) {
-                x <- as.data.frame(coda1[[i]])
+                x <- as.data.frame(coda1$mcmc[[i]])
                 x$chain <- i
                 x$sample <- 1:nrow(x)
                 x
@@ -64,7 +86,7 @@ for(lab in labs) {
 
         write.csv(
             x = codf_long, 
-            file = here("results", paste0(lab, "-",sample, "-", "cocovoccoda.csv")), 
+            file = filename, 
             row.names = FALSE
         )
 
