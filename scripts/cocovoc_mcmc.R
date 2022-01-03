@@ -39,11 +39,14 @@ for(lab in labs) {
     samples <- unique(cocovoc$sample[cocovoc$lab == lab])
 
     for(sample in samples){
-        filename <- here("results", paste0(lab, "-",sample, "-", "cocovoccoda.csv"))
+        filename <- here("results", paste0(lab, "-", sample, "-cocovoccoda-", ifelse(big, "big", "med"), ".csv"))
         print(filename)
         if(file.exists(filename) & !overwrite) {
             print("File exists. Use --overwrite to overwrite all files.")
             next
+        } else {
+            # Create blank file so other processes know it's in progress
+            writeLines("", filename)
         }
 
         cocovoc1 <- cocovoc[cocovoc$sample == sample & cocovoc$lab == lab,]
@@ -62,7 +65,7 @@ for(lab in labs) {
                     P = nrow(variantmat), variantmat = variantmat),
                 adapt = 500,
                 burnin = 500, 
-                n.chains = 2,
+                n.chains = 3,
                 sample = 3000, 
                 thin = 5,
                 monitor = c("p"),
