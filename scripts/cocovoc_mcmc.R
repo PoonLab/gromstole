@@ -24,13 +24,15 @@ model{
 
 args <- commandArgs(trailingOnly = TRUE)
 overwrite <- "--overwrite" %in% args
+big <- "--big" %in% args
 
-variantmat <- read.csv(here("data", "variantmat_med.csv"), row.names = 1)
+
+variantmat <- read.csv(here("data", ifelse(big, "variantmat_big.csv", "variantmat_med.csv")), row.names = 1)
 variantmat <- as.matrix(variantmat)
 dim(variantmat)
 rankMatrix(variantmat) # variantmat_big is not full rank - some variants will be unidentifiable
 
-cocovoc <- read.csv(here("data", "cocovoc_med.csv"), stringsAsFactors = FALSE)
+cocovoc <- read.csv(here("data", ifelse(big, "cocovoc_big.csv", "cocovoc_med.csv")), stringsAsFactors = FALSE)
 
 labs <- unique(cocovoc$lab)
 for(lab in labs) {
@@ -45,6 +47,7 @@ for(lab in labs) {
         }
 
         cocovoc1 <- cocovoc[cocovoc$sample == sample & cocovoc$lab == lab,]
+        if(all(is.na(cocovoc1$coverage2))) next
         variantmat1 <- variantmat[, which(!is.na(cocovoc1$coverage2))]
         cocovoc1 <- cocovoc1[!is.na(cocovoc1$coverage2), ]
         cocovoc1$count <- round(cocovoc1$count)
