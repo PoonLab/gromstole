@@ -1,7 +1,7 @@
 \documentclass{article}
 
 \usepackage[margin=1.15in]{geometry}
-\usepackage{cite}
+\usepackage{natbib}
 
 \title{GromStole: A Pipeline for SARS-CoV-2 Variant Detection in Wastewater Samples}
 \author{Art Poon, Devan Becker, Gopi Gugan, Erin Brintnell, Art Poon (again)}
@@ -31,9 +31,9 @@ We'll see how well this plan works out.
 \section{Introduction}
 
 % Background info and importance
-It is clinically and logistically important to know which variants of SARS-CoV-2 are spreading in a given region so that the correct action can be taken for the individual and for the government.
-Genetic sequencing of SARS-CoV-2 genomes from patients is costly and requires coordination between clinics, sequencing labs, and some central organizing agency \cite{needed}, which means that a small percentage of COVID-19 patients have samples of the virus taken for sequencing.
-Sequences acquired this way are strongly affected by sampling bias - in general, patients at higher risk of having a variant of interest are preferentially sampled \cite{needed}.
+It is clinically and logistically important to know which ``variants'' of SARS-CoV-2 are spreading in a given region so that the correct action can be taken for the individual and for the government.
+Genetic sequencing of SARS-CoV-2 genomes from patients is costly and requires coordination between clinics, sequencing labs, and some central organizing agency \citep{needed}, which means that a small percentage of COVID-19 patients have samples of the virus taken for sequencing.
+Sequences acquired this way are strongly affected by sampling bias - in general, patients at higher risk of having a variant of interest are preferentially sampled \citep{needed}.
 For this reason, detection of variants in wastewater provides an attractive alternative that allows for unbiased sampling and continuous monitoring. 
 
 
@@ -41,12 +41,40 @@ For this reason, detection of variants in wastewater provides an attractive alte
     \item Other papers that have done wastewater monitoring for detection/amount of any virus
     \item Other papers that have done wastewater monitoring for detection/amount of SARS-CoV-2
     \item Other papers that have done wastewater monitoring for \emph{variants}
-    \item Statement of our goals, including output format and basic modelling
 \end{tightemize}
 
+% Terminology - variant versus lineage
+Before we continue, we make a brief note on terminology. 
+``Variant of Concern'' (VoC) and ``Variant of Interest'' (VoI) are terms used by the World Health Organization \citep[WHO, ][]{needed} to refer to collections of SARS-CoV-2 genomes (as defined using a phylogenetic tree) that are clinically or epidemiologically interesting. 
+The term ``lineage'' is used by the Pangolin team to refer categorization of genomes chosen based on a phylogeny \citep{needed}.
+In general, a VoC or VoI corresponds to exactly one lineage in the Pangolin classification system.
+In this paper, we use ``variant'' to refer to a particular lineage that we are searching for in a wastewater sample; otherwise ``variant'' and ``lineage'' are used interchangeably.
+We use ``variant of interest'', in all lower case, to refer to the variant that we are interested in detecting, rather than the WHO's definition.
 
+% Statement of our goals, including output format and basic modelling
+% Representative mutations
+We have developed a pipeline that uses open access data to determine the relative abundance of mutations across all lineages and then use this information to detect variants of interest in samples of wastewater.
+Here, we provide a broad overview of the pipeline before delving into the specifics.
 
+The first step is to determine which mutations we are looking for in the wastewater samples.
+The pipeline begins by aligning all data (open access as well as the wastewater samples) to a reference sequence and recording a set of mutations for each observed sequence or short read.
+The sets of mutations for each known lineage are combined so that we can easily look up mutations unique to a lineage.
+The relative abundance of mutations across all lineages is important to reduce the chance of false positives, \emph{i.e.} when a variant of interest shares mutations with another lineage.
+Before attempting detection, we filter out the mutations of a variant that are common in the population and/or rarely observed in the variant.
+This pipeline leaves us with a list of representative mutations for our variant and the number of times that each mutation could have been observed (it is also possible to circumvent this step and provide a custom list of mutations to be detected).
 
+% Coverage
+In addition to the number of times a mutation was observed, we also record the number of times each position on the reference genome was observed; that is, the number of short reads that had coverage at each position.
+The coverage is found at the position of every mutation in the variant of interest; if a particular mutation was not observed in a sample, it is still important to know the coverage at that position.
+If the position of a mutation has low (or zero) coverage, then the lack of observations of this mutation is not strong evidence of either presence or absence.
+
+% Modelling
+Given the list of mutations, we use a simple binomial model to detect the variant.
+There is still a risk that some of the representative mutations for the variant have arisen independently in other lineages.
+Furthermore, there is the chance that mutations have arisen due to sequencing error \citep{needed}.
+Because of this, we use a binomial model that assumes a constant proportion for each mutation but allows for variance around this proportion.
+The proportion should be carefully interpreted as the average proportion of each representative mutation, not as the proportion of genome sequences in the wastewater that are consistent with the variant of interest.
+The confidence interval of the proportion parameter is compared to an assumed sequencing error for the Next Generation Sequencing (NGS) machines, and any confidence interval that is entirely above the assumed error is declared a potential detection of the variant.
 
 
 \section{Data Processing}
@@ -148,8 +176,19 @@ For this reason, detection of variants in wastewater provides an attractive alte
 \label{fig:binomial_results}
 \end{figure}
 
+
+\section{Discussion and limitations}
+
+\begin{tightemize}
+    \item The method is statistically good.
+    \item The method is practically good.
+    \item Can be modified to different wastewater data formats.
+    \item We cannot detect unknown variants with this method.
+\end{tightemize}
+
+
 \bibliography{methods_bib}{}
-\bibliographystyle{apalike}
+\bibliographystyle{abbrvnat}
 
 \end{document}
 
