@@ -30,7 +30,7 @@ def parse_metadata(metaurl):
 def batcher(handle, size=100):
     """ Break FASTA data into batches to stream to minimap2 """
     stdin = ''
-    for i, record in iter_fasta(handle):
+    for i, record in enumerate(iter_fasta(handle)):
         stdin += '>{0}\n{1}\n'.format(*record)
         if i > 0 and i % size == 0:
             yield stdin

@@ -137,7 +137,11 @@ def encode_diffs(row, reflen=29903, alphabet='ACGT', minq=10):
             else:
                 # assume adjacent mismatches are independent substitutions
                 for i, nt in enumerate(substr):
-                    q = ord(subqual[i]) - 33
+                    try:
+                        q = ord(subqual[i]) - 33
+                    except:
+                        # subqual[i] = ''
+                        q = 0
                     if nt in alphabet and q >= minq:
                         diffs.append(tuple(['~', rpos + i, nt]))
                     else:
