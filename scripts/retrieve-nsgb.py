@@ -13,6 +13,7 @@ import subprocess
 import re
 import argparse
 from minimap2 import encode_diffs
+import json
 
 
 def parse_metadata(metaurl):
@@ -108,4 +109,6 @@ if __name__ == "__main__":
 
     lineages = parse_metadata(args.metaurl)
     results = count_mutations(args.sequrl, lineages, refpath=args.refpath)
+    with open(args.outfile, "w") as handle:
+        json.dump(results, handle, indent = 2)
 
