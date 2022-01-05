@@ -81,9 +81,16 @@ The confidence interval of the proportion parameter is compared to an assumed se
 
 \subsection{Input Format}
 
-\begin{tightemize}
-    \item Context of data
-    \item Description of paired-end Illumina FASTQ files 
+% Context of data
+Our pipeline assumes that data come from wastewater samples processed according to the ARTIC pipeline \cite{needed} on the Illumina NGS platform \cite{needed}, although the pipeline can be modified for other platforms.
+The expected format is a FASTQ file \cite{needed}, where each entry represents one short read from the amplicons specified in ARTIC V3. TODO: Does it have to be V3? We didn't end up using the amplicons anywhere.
+These files are expected to follow the FASTQ specification, with a sequence information row, the sequence itself, a plus sign, then the Phred score \cite{needed}.
+A reference genome is also required for data processing.
+We use Wuhan-1 \cite{needed} as the default, but the pipeline allows for specification by the user.
+
+
+
+\begin{tightemize} 
     \item Required modifications for other platforms
 \end{tightemize}
 
