@@ -96,9 +96,40 @@ We use Wuhan-1 \cite{needed} as the default, but the pipeline allows for specifi
 
 \subsection{Parsing FASTQ files}
 
+% Description of desired output format
+The purpose of this step of the pipeline is to convert the input FASTQ files into a list of mutations for each read and the coverage at each position of the reference genome.
+The mutation list allows us to search for the mutations that we are interested in.
+For a mutation that was not observed in the data, the coverage at each position allows us to determine whether it wasn't observed because there was low or zero coverage at the position where it would be or if there was sufficient coverage to detect it but it wasn't present.
+The \texttt{minimap2.py} script accepts a FASTQ file (or pair of FASTQ files for paired-end reads) as well as a reference genome and outputs \texttt{mutations.csv} and \texttt{coverage.csv}.
+
+% Parsing into features by mapping to reference
+The \texttt{mutations.csv} file contains the mutation description, the position, and the coverage at that position.
+The mutation description includes the alteration relative to the reference, which is labelled as \texttt{$\sim$}, \texttt{+}, or \texttt{-} for polymorphism, insertion, or deletion, respectively.
+For polymorphisms, the nucleotide from the reference genome is not included in the label but the new nucleotide is.
+For insertions, the added nucleotides are listed.
+For deletions, the number of deletions is recorded.
+If applicable, the 
+This structure is demonstrated below.
+
+%TODO: Get verbatim next to each other, with captions: https://stackoverflow.com/questions/2983839/latex-two-captioned-verbatim-environments-side-by-side
+%TODO: anonymize 
+\begin{verbatim}
+position,label,mutation,frequency,coverage
+27484,~27485C,aa:orf7a:L31S,0.00010871759827294332,64387
+27484,~27485A,aa:orf7a:L31*,0.0002484973674810133,64387
+\end{verbatim}
+
+\begin{verbatim}
+position,coverage
+0,0
+1,0
+2,0
+3,1
+4,40
+\end{verbatim}
+
+
 \begin{tightemize}
-    \item Description of desired output format
-    \item Parsing into features by mapping to reference
     \item Dealing with paired-end data: mutations in one or both
     \item Dealing with paired-end data: coverage
     \item Calculating mutation frequency and coverage
