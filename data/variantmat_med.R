@@ -16,6 +16,13 @@ VoC <- c('A.23.1', 'AV1', 'AY.4.2', 'AY.4', 'B.1.1.318', 'B.1.1.529',
     'B.1.617.1', 'B.1.617.2', 'B.1.617.3', 'B.1.621', 'BA.1', 'BA.2', 
     'BA.3', 'C.37', 'P.1', 'P.2', 'P.3')
 
+recent_sequences <- read.csv(here("data", "sequence_recency.csv"), 
+    stringsAsFactors = FALSE)
+VoC <- recent_sequences$lineage[order(-recent_sequences$last6)][1:66] # TODO: Sensitivity analysis
+# Ensure that omicron is in the data.
+VoC <- c("B.1.1.529", "BA.1", "BA.2", VoC)
+VoC <- unique(VoC)
+
 mutations <- read_json(here("data", "count-mutations.json"))
 voc_muts <- unlist(sapply(VoC, function(x) 
     names(mutations)[which(grepl(x, names(mutations), fixed = TRUE))[1]]))

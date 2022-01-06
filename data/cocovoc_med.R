@@ -13,11 +13,16 @@ cfiles <- list.files(here("results"),
     sort()
 
 # Gather mutations list (BIG)
-medvariantmatrix <- read.csv(here("data", "variantmat_med.csv"), 
-    row.names = 1)
-medmuts <- names(medvariantmatrix)
+if("--big" %in% commandArgs()) {
+    variantmatrix <- read.csv(here("data", "variantmat_big.csv"), 
+        row.names = 1)
+} else {
+    variantmatrix <- read.csv(here("data", "variantmat_med.csv"), 
+        row.names = 1)
+}
+medmuts <- names(variantmatrix)
 medpos <- sapply(strsplit(medmuts, "[A-Za-z]"), paste0, collapse = "")
-rm(medvariantmatrix) # Just need the names
+rm(variantmatrix) # Just need the names
 
 
 cat("\n")
@@ -99,6 +104,9 @@ m3 <- m2 %>%
 counts <- left_join(counts, m3, by = "sample")
 }
 
-write.csv(cocovoc, file = here("data", "cocovoc_med.csv"), row.names = FALSE)
-
+if("--big" %in% commandArgs()) {
+    write.csv(cocovoc, file = here("data", "cocovoc_big.csv"), row.names = FALSE)
+} else {
+    write.csv(cocovoc, file = here("data", "cocovoc_med.csv"), row.names = FALSE)
+}
 
