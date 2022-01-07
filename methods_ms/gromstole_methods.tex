@@ -93,30 +93,31 @@ The confidence interval of the proportion parameter is compared to an assumed se
 \begin{figure}
 \centering
 \begin{tikzpicture}[node distance=1cm]
-\node (nextstrain) [startstop, text width=1.75cm] {NextStrain Sequence Data};
-\node (nsmut) [process, right of=nextstrain, xshift=1.66cm, text width=1.75cm, yshift=0.6cm] {Background Mutation Frequency};
-\node (nsomi) [process, below of=nsmut, text width=1.75cm, yshift=-0.4cm] {Variant Mutations};
-\draw [arrow] (nextstrain) -- (nsmut);
-\draw [thick, dashed,->,>=stealth] (nextstrain) -- (nsomi);
-
-\node (waste) [startstop, below of=nextstrain, yshift=-1.66cm, text width=1.75cm] {Wastewater Samples};
-\node (wmut) [process, right of=waste, xshift=2.7cm, yshift=0.5cm, text width=1.75cm] {Mutation Counts};
+\node (waste) [startstop, text width=1.75cm] {Wastewater Samples};
+\node (wmut) [process, right of=waste, xshift=2.85cm, yshift=0.6cm, text width=2cm] {Mutation Counts};
 \draw [arrow] (waste) -- (wmut);
-\node (wcov) [process, below of=wmut, yshift=-0.2cm, text width=1.75cm] {Coverage};
+\node (wcov) [process, below of=wmut, yshift=-0.2cm, text width=2cm] {Coverage at All Positions};
 \draw [arrow] (waste) -- (wcov);
 
-\node (uniques) [process, right of=nsmut, yshift=-0.5cm, xshift=1.66cm, text width=1.75cm] {``Unique'' Mutations};
+\node (nextstrain) [startstop, text width=1.75cm, below of=waste, yshift=-1.85cm] {NextStrain Sequence Data};
+\node (nsmut) [process, right of=nextstrain, xshift=1.66cm, text width=1.75cm, yshift=0.6cm] {Mutations in Variant of Interest};
+\node (nsomi) [process, below of=nsmut, text width=1.75cm, yshift=-0.4cm] {Mutations in Other Variants};
+\draw [arrow] (nextstrain) -- (nsmut);
+\draw [thick, dashed,->,>=stealth] (nextstrain) -- (nsomi);
+\draw [color=gray, thick](-1.15, -4.45) rectangle (3.8,-1.45);
+\node at (-1.2, -4.45) [below=2.3mm, right=-1.5mm] {\textcolor{gray}{Optional if Mutation List Known}};
+
+\node (uniques) [process, right of=nsmut, yshift=-0.5cm, xshift=1.75cm, text width=2cm] {``Unique'' Mutations for Variant};
 \draw [arrow] (nsmut) -- (uniques);
 \draw [arrow] (nsomi) -- (uniques);
 
-\node (detect) [process, right of=uniques, yshift=-1.5cm, xshift=1.66cm, text width=2cm] {Count \& Coverage of Unique Mutations};
+\node (detect) [process, right of=uniques, yshift=2.75cm, xshift=2.4cm, text width=3.6cm] {\hyphenchar\font=-1 Count and Coverage of ``Unique'' Variant Mutations in the Data \textcolor{gray}{(including coverage for unobserved mutations)}};
 \draw [arrow] (uniques) -- (detect);
 \draw [arrow] (wmut) -- (detect);
 \draw [arrow] (wcov) -- (detect);
 
-\node (model) [startstop, right of=detect, xshift=2cm, text width=2cm] {Binomial Model};
+\node (model) [startstop, right of=detect, xshift=2.5cm, text width=2cm] {Binomial Model};
 \draw [arrow] (detect) -- (model);
-
 \end{tikzpicture}
 \caption{The structure of our pipeline. NextStrain data are used to find the frequency of all mutations, then this is compared to the mutations of the variant (the dashed line indicates that this may or may not come from the NextStrain data) in order to find which mutations are common in the variant but uncommon in the population (``Unique'' Mutations). The wastewater samples are processed to determine which mutations are present and determine the number of times each position was observed (i.e., the coverage). The number of observations of the unique mutations is found, along with the coverage at the position of those mutations (the coverage is found regardless of whether that mutation was observed). Finally, a binomial model is used to estimate the proportion.}
 \end{figure}
