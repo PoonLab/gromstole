@@ -3,6 +3,18 @@
 \usepackage[margin=1.15in]{geometry}
 \usepackage{natbib}
 
+% Tikz for flow chart
+%https://www.overleaf.com/learn/latex/LaTeX_Graphics_using_TikZ%3A_A_Tutorial_for_Beginners_(Part_3)%E2%80%94Creating_Flowcharts
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows}
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=1.75cm, minimum height=1cm,text centered, draw=black]
+\tikzstyle{io} = [trapezium, trapezium left angle=70, trapezium right angle=110, minimum width=1.75cm, minimum height=1cm, text centered, draw=black, fill=blue!30]
+\tikzstyle{process} = [rectangle, minimum width=1.75cm, minimum height=1cm, text centered, draw=black]
+\tikzstyle{decision} = [diamond, minimum width=1.75cm, minimum height=1cm, text centered, draw=black]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+
+
 \title{GromStole: A Pipeline for SARS-CoV-2 Variant Detection in Wastewater Samples}
 \author{Art Poon, Devan Becker, Gopi Gugan, Erin Brintnell, Art Poon (again)}
 \date{\today}
@@ -75,6 +87,39 @@ Furthermore, there is the chance that mutations have arisen due to sequencing er
 Because of this, we use a binomial model that assumes a constant proportion for each mutation but allows for variance around this proportion.
 The proportion should be carefully interpreted as the average proportion of each representative mutation, not as the proportion of genome sequences in the wastewater that are consistent with the variant of interest.
 The confidence interval of the proportion parameter is compared to an assumed sequencing error for the Next Generation Sequencing (NGS) machines, and any confidence interval that is entirely above the assumed error is declared a potential detection of the variant.
+
+
+
+\begin{figure}
+\centering
+\begin{tikzpicture}[node distance=1cm]
+\node (nextstrain) [startstop, text width=1.75cm] {NextStrain Sequence Data};
+\node (nsmut) [process, right of=nextstrain, xshift=1.66cm, text width=1.75cm, yshift=0.6cm] {Background Mutation Frequency};
+\node (nsomi) [process, below of=nsmut, text width=1.75cm, yshift=-0.4cm] {Variant Mutations};
+\draw [arrow] (nextstrain) -- (nsmut);
+\draw [thick, dashed,->,>=stealth] (nextstrain) -- (nsomi);
+
+\node (waste) [startstop, below of=nextstrain, yshift=-1.66cm, text width=1.75cm] {Wastewater Samples};
+\node (wmut) [process, right of=waste, xshift=2.7cm, yshift=0.5cm, text width=1.75cm] {Mutation Counts};
+\draw [arrow] (waste) -- (wmut);
+\node (wcov) [process, below of=wmut, yshift=-0.2cm, text width=1.75cm] {Coverage};
+\draw [arrow] (waste) -- (wcov);
+
+\node (uniques) [process, right of=nsmut, yshift=-0.5cm, xshift=1.66cm, text width=1.75cm] {``Unique'' Mutations};
+\draw [arrow] (nsmut) -- (uniques);
+\draw [arrow] (nsomi) -- (uniques);
+
+\node (detect) [process, right of=uniques, yshift=-1.5cm, xshift=1.66cm, text width=2cm] {Count \& Coverage of Unique Mutations};
+\draw [arrow] (uniques) -- (detect);
+\draw [arrow] (wmut) -- (detect);
+\draw [arrow] (wcov) -- (detect);
+
+\node (model) [startstop, right of=detect, xshift=2cm, text width=2cm] {Binomial Model};
+\draw [arrow] (detect) -- (model);
+
+\end{tikzpicture}
+\caption{The structure of our pipeline. NextStrain data are used to find the frequency of all mutations, then this is compared to the mutations of the variant (the dashed line indicates that this may or may not come from the NextStrain data) in order to find which mutations are common in the variant but uncommon in the population (``Unique'' Mutations). The wastewater samples are processed to determine which mutations are present and determine the number of times each position was observed (i.e., the coverage). The number of observations of the unique mutations is found, along with the coverage at the position of those mutations (the coverage is found regardless of whether that mutation was observed). Finally, a binomial model is used to estimate the proportion.}
+\end{figure}
 
 
 \section{Data Processing}
