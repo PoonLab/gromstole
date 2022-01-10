@@ -153,7 +153,8 @@ TCGCT               AACACCAT
 @Read 5             @Read 5
 CTC--AGTACA         CTC--AGTCCA
 \end{verbatim}
-\caption{Example paired-end FASTQ files (Each column is a separate file. Phred scores for reads 2-5 are not shown to save space.}
+\caption{Example paired-end FASTQ files, where each column is a separate file.
+Phred scores for reads 2-5 are not shown to save space.}
 \label{short-reads}
 \end{figure}
 
@@ -172,13 +173,17 @@ For a mutation that was not observed in the data, the coverage at each position 
 The \texttt{minimap2.py} script accepts a FASTQ file (or pair of FASTQ files for paired-end reads) as well as a reference genome and outputs \texttt{mutations.csv} and \texttt{coverage.csv}.
 
 % Parsing into features by mapping to reference
-The \texttt{mutations.csv} file contains the mutation description, the position, and the coverage at that position.
+The \texttt{mutations.csv} file contains the mutation description (described below), the frequency of that mutation, the position relative to the reference, and the coverage at that position.
+This structure is demonstrated in Figure \ref{mapped}.
+As a demonstration, an intermediary step in finding he mutations and coverage of the short reads in Figure \ref{short-reads} is shown in Table \ref{aligned}
+
+
 The mutation description includes the alteration relative to the reference, which is labelled as \texttt{$\sim$}, \texttt{+}, or \texttt{-} for polymorphism, insertion, or deletion, respectively.
 For polymorphisms, the nucleotide from the reference genome is not included in the label but the new nucleotide is.
 For insertions, the added nucleotides are listed.
 For deletions, the number of deletions is recorded.
-If applicable, the 
-This structure is demonstrated below.
+The ``fields'' in the description are separated by the pipe character, \texttt{|}.
+This is to avoid ambiguity in deletions, e.g. whether \texttt{-9911} is one deletion at position 991 or 11 deletions at position 99.
 
 \begin{table}[h!]
 \begin{tabular}{llll}
@@ -192,7 +197,10 @@ Position & \texttt{012345678901234} && \\\hline
 5         & \texttt{---CTC\textcolor{red}{--}A\textcolor{red}{G}TACA-} & \texttt{-|6|2}, \texttt{$\sim$|9|G}& \texttt{[[3,13]]}\\\hline
 Coverage & \texttt{222344333323221} &&
 \end{tabular}
-\caption{Merging the short reads in Figure \ref{short-reads} and aligning to the reference to the determe the mutation list and coverage. Our methods for merging the paired-end reads are detailed in the text. The alignments are pairwise, so the insertions in Read 4 do not affect the alignment of the other reads. The final row is the observed number of reads at each position on the reference (again, the insertions of Read 4 do not affect the position in the reference; the final \texttt{CAT} are in positions 12, 13, and 14).}
+\caption{Merging the short reads in Figure \ref{short-reads} and aligning to the reference to the determine the mutation list and coverage.
+Our methods for merging the paired-end reads are detailed in the text.
+The alignments are pairwise, so the insertions in Read 4 do not affect the alignment of the other reads.
+The final row is the observed number of reads at each position on the reference (again, the insertions of Read 4 do not affect the position in the reference; the final \texttt{CAT} are in positions 12, 13, and 14).}
 \label{aligned}
 \end{table}
 
@@ -206,7 +214,8 @@ position,label,mutation,frequency,coverage
 8,-|8|1,0.2,3
 11,+|11|ACAG,0.2,3
 \end{verbatim}
-\caption{The mutation list calculated from Table \ref{aligned}.}
+\caption{\texttt{mapped.csv}, the mutation list calculated from Table \ref{aligned}. The frequency column is calculated as the number of reads where the given observation was observed divided by the number of short reads.}
+\label{mapped}
 \end{figure}
 
 \begin{figure}[h!]
@@ -219,17 +228,30 @@ position,coverage
 4,4
 ...,...
 \end{verbatim}
-\caption{The coverage file. This can be used to look up the coverage at positions where a mutation of interest was not found in the data.}
+\caption{\texttt{coverage.csv}. This file can be used to look up the coverage at positions where a mutation of interest was not found in the data.}
 \label{coverage}
 \end{figure}
 
-\begin{tightemize}
-    \item Dealing with paired-end data: mutations in one or both
-    \item Dealing with paired-end data: coverage
-    \item Calculating mutation frequency and coverage
-    \item Implementation in \texttt{minimap2.py} (which is adapted from \texttt{covizu})
-    \item Summary of output format and current implementation with \texttt{autoprocess.py}
-\end{tightemize}
+% Dealing with paired-end data: coverage
+There were several decisions that needed to be made to determine the observed coverage and mutations.
+For instance, in Read 1, the first read covers positions 6 to 11 but the second covers positions 5 to 10, relative to the reference genome.
+We merge these two reads and chose to take the union of the coverage.
+This means that position 5 only had one observation from Read 1 while position 6 had two observations, but they're both being treated as a full observation.
+This merging strategy is necessary for an accurate evaluation of the frequency of each mutation; if the mutation is only observed on one short read and the other read has no coverage at that position, the mutation is still treated as one mutation so the coverage must count as one observation towards the total.
+
+In Table \ref{aligned}, note that the \texttt{-} characters in read 4 are black, not red, despite being between called bases.
+In our example here, these are unobserved positions rather than deletions --- Figure \ref{short-reads} shows that there is no overlap between Read 4 in the two FASTQ files.
+This is not uncommon; the sequencing platform starts reading from either end of the amplicon, but does not read far enough in either direction to overlap.
+
+% Dealing with paired-end data: mutations in one or both
+Read 5 in Figure \ref{short-reads} demonstrates another challenge for paired-end reads: they may disagree on the base calls.
+In particular, the 9th base in the short read is A in the first read and C in the second.
+We chose to only count mutations if they appear in both short reads, hence why this mutation is not recorded in Table \ref{aligned}.
+This has the side effect of putting a higher burden of proof on mutations in positions with coverage from both short reads.
+Again, this is necessary to ensure that there is one full observation of coverage at the position of each full observation of a mutation, without resorting to fractional observations.
+
+The python script \texttt{minimap2.py} takes a pair of FASTQ files as input (along with a reference genome) and produces both \texttt{mapped.csv} (Figure \ref{mapped}) and \texttt{coverage.csv} (Figure \ref{coverage}).
+% TODO: Add to this paragraph
 
 
 \subsection{Mutation Frequency}
