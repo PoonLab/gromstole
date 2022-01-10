@@ -70,12 +70,12 @@ def minimap2(stdin, refpath, path='minimap2', nthread=1, minlen=29000):
         yield qname, rpos, cigar, seq, qual
 
 
-def count_mutations(sequrl, lineages, refpath):
+def count_mutations(sequrl, lineages, refpath, binpath='minimap2', nthreads=1, minlen=29000):
     # stream genomes in batches and extract and count differences
     results = {}
     handle = lzma.open(request.urlopen(sequrl), 'rt')
     for batch in batcher(handle):
-        for row in minimap2(batch, refpath):
+        for row in minimap2(batch, refpath, path=binpath, nthread=nthreads, minlen=minlen):
             qname, diffs, missing = encode_diffs(row)
 
             # retrieve PANGO lineage assignment
@@ -98,17 +98,21 @@ def count_mutations(sequrl, lineages, refpath):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("outfile", help="")
+    parser.add_argument("outfile", type=argparse.FileType('w'), help="Path to write JSON output.")
     parser.add_argument("--sequrl", help="URL to Nextstrain sequences.fasta.xz file",
                         default="https://data.nextstrain.org/files/ncov/open/sequences.fasta.xz")
     parser.add_argument("--metaurl", help="URL to Nextstrain metadata.tsv.gz file",
                         default="https://data.nextstrain.org/files/ncov/open/metadata.tsv.gz")
     parser.add_argument("--mm2bin", default="minimap2", help="path to minimap2 binary executable file")
+    parser.add_argument("-t", "--nthreads", type=int, default=1, help="number of threads for minimap2")
+    parser.add_argument("--minlen", default=29000, help="minimum genome length")
     parser.add_argument("--refpath", default="data/NC_045512.fa", help="path to reference genome FASTA")
     args = parser.parse_args()
 
+    print("Parsing metadata")
     lineages = parse_metadata(args.metaurl)
-    results = count_mutations(args.sequrl, lineages, refpath=args.refpath)
-    with open(args.outfile, "w") as handle:
-        json.dump(results, handle, indent = 2)
-
+    print("Streaming genomes and extracting features")
+    results = count_mutations(args.sequrl, lineages, refpath=args.refpath, binpath=args.mm2bin,
+                              nthreads=args.nthreads, minlen=args.minlen)
+    print("Writing result to output file {}".format(args.outfile.name))
+    json.dump(results, args.outfile, indent=2)
