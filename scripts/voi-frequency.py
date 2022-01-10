@@ -24,7 +24,7 @@ variant = []
 for key in variant_list:
     variant.extend(mutations[key]['mutations'])
 
-outfile = open("data/unique-mutations_" + "_".join(variant_list).replace(".", "-") + ".csv", 'w')
+outfile = open("data/voi-frequency_" + "_".join(variant_list).replace(".", "-") + ".csv", 'w')
 outfile.write("lineage,variant_of_interest,count," + ",".join(variant) + '\n')
 for lineage, ldata in mutations.items():
     denom = ldata['count']
