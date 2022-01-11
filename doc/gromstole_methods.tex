@@ -28,6 +28,7 @@
     \setlength{\parsep}{0pt}     }
 { \end{itemize}                  } 
 
+% TODO: Track down my references
 
 
 \begin{document}
@@ -89,7 +90,7 @@ The proportion should be carefully interpreted as the average proportion of each
 The confidence interval of the proportion parameter is compared to an assumed sequencing error for the Next Generation Sequencing (NGS) machines, and any confidence interval that is entirely above the assumed error is declared a potential detection of the variant.
 
 
-
+% TODO: Grey boxes denoting section?
 \begin{figure}[h!]
 \centering
 \begin{tikzpicture}[node distance=1cm]
@@ -126,7 +127,11 @@ The confidence interval of the proportion parameter is compared to an assumed se
 \node (model) [startstop, right of=detect, xshift=2.8cm, text width=2cm] {Binomial Regression Model};
 \draw [arrow] (detect) -- (model);
 \end{tikzpicture}
-\caption{The structure of our pipeline. Wastewater samples are processed to find the number of times each mutation is observed along with the coverage at every position (relative to the reference genome). This information is combined with a list of mutations believed to be unique to the variant of interest (possibly from counts of mutations in known lineages from NextStrain). It is important to have the coverage for the position of each ``unique'' mutation, regardless of whether this was observed in the wastewater samples. The proportion is found via a binomial regression model.}
+\caption{The structure of our pipeline.
+Wastewater samples are processed to find the number of times each mutation is observed along with the coverage at every position (relative to the reference genome).
+This information is combined with a list of mutations believed to be unique to the variant of interest (possibly from counts of mutations in known lineages from NextStrain).
+It is important to have the coverage for the position of each ``unique'' mutation, regardless of whether this was observed in the wastewater samples.
+The proportion is found via a binomial regression model.}
 \end{figure}
 
 
@@ -219,7 +224,8 @@ position,label,mutation,frequency,coverage
 8,-|8|1,0.2,3
 11,+|11|ACAG,0.2,3
 \end{verbatim}
-\caption{\texttt{mapped.csv}, the mutation list calculated from Table \ref{aligned}. The frequency column is calculated as the number of reads where the given observation was observed divided by the number of short reads.}
+\caption{\texttt{mapped.csv}, the mutation list calculated from Table \ref{aligned}.
+The frequency column is calculated as the number of reads where the given observation was observed divided by the number of short reads.}
 \label{mapped}
 \end{figure}
 
@@ -233,7 +239,8 @@ position,coverage
 4,4
 ...,...
 \end{verbatim}
-\caption{\texttt{coverage.csv}. This file can be used to look up the coverage at positions where a mutation of interest was not found in the data.}
+\caption{\texttt{coverage.csv}. 
+This file can be used to look up the coverage at positions where a mutation of interest was not found in the data.}
 \label{coverage}
 \end{figure}
 
@@ -259,19 +266,29 @@ The python script \texttt{minimap2.py} takes a pair of FASTQ files as input (alo
 % TODO: Add to this paragraph
 
 
-\subsection{Mutation Frequency}
+\subsection{Frequency of ``Unique'' Mutations}
+
+% Motivation
+Our binomial regression model estimates a proportion based on all of the supplied mutations.
+Any mutation that is present in other lineages will artificially inflate our estimated proportions.
+Prior to modelling, we must ensure that our set of mutations is common in the variant of interest but uncommon in other lineages.
+We put ``unique'' in quotation marks because we accept that each mutation might be present in other lineages in small numbers, might arise due to chance, or might arise due to sequencing error.
+In this section we detail our current process for creating a list of mutations to be used in the modelling stage, starting by acquiring a collection of sequences and processing them to find the frequency of each mutation within each lineage.
+
+\subsubsection{Frequency of Mutations}
+
+% Motivation/processing
+Our first step is to obtain a large collection of sequences.
+We obtain this as a large FASTA file, available publicly from NextStrain.
+We immediately process each sequence into a list of mutations using the same methods as \texttt{minimap2.py}.
+As we stream through the sequences, we record the lineage assigned to the sequence.
+For each lineage, we start with an empty list and either add a mutation to the list when it is observed in that lineage or increment the count of that mutation if it was already observed.
+Note that the record for a given lineage only contains mutations that have counts larger than 0; we do not need to add all mutations to all lineage records.
+Each record also contains the \emph{frequency} of each mutation within a lineage, i.e., the percent of sequences labelled with a lineage that contained a given mutation.
+When we refer to frequency of a mutation, we mean within a lineage rather than across all lineages.
+This is stored in a compressed \texttt{json} file format, with entries for each lineage, entries for each of that lineage's mutations, and the frequency of each mutation.
 
 
-\begin{tightemize}
-    \item Motivation for getting this data
-\end{tightemize}
-
-\subsubsection{Background Frequency}
-\begin{tightemize}
-    \item Motivation for getting this data
-    \item Accessing and processing GISAID data into mutations lists
-    \item Calculating background frequencies (per-variant)
-\end{tightemize}
 
 \subsubsection{Variant-Specific Mutations}
 
