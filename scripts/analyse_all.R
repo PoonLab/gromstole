@@ -18,25 +18,34 @@ sum(is.na(coco$latitude)); nrow(coco)
 
 # Prepare for the results
 res_df <- coco %>% 
-    select(sample, lab, coldate, location, longitude, latitude) %>%
+    select(sample, folder, lab, location) %>%
     distinct() %>%
     mutate(prop = rep(NA, n()), 
         lo = rep(NA, n()), hi = rep(NA, n()),
-        status = rep(NA, n()))
+        status = rep(NA, n()),
+        totol_succ = rep(NA, n()),
+        totol_fail = rep(NA, n())
+        )
 
 for (i in seq_len(nrow(res_df))) {
-    thiscoco <- coco[coco$sample == res_df$sample[i], ]
-    success <- thiscoco$count
-    failure <- thiscoco$coverage - success
+    thiscoco <- coco[coco$sample == res_df$sample[i] & coco$lab == res_df$lab[i] & coco$folder == res_df$folder[i], ]
+    success <- round(as.numeric(thiscoco$count))
+    failure <- round(as.numeric(thiscoco$coverage - success))
+    res_df$totol_fail[i] <- sum(failure, na.rm = TRUE)
+    res_df$totol_succ[i] <- sum(success, na.rm = TRUE)
 
-    if (sum(success, na.rm = TRUE) < 3 | 
-            sum(failure, na.rm = TRUE) < 10 |
-            any(success > failure, na.rm = TRUE)) {
+    errors <- c(sum(success, na.rm = TRUE) < 3, 
+            sum(round(as.numeric(thiscoco$coverage)), na.rm = TRUE) < 10,
+            any(success > round(as.numeric(thiscoco$count)), na.rm = TRUE))
+    if (any(errors)) {
+        print(c("<3 successes", "<10 coverage", "success > count")[which(errors)])
+        print(res_df[i, c("sample", "lab", "folder")])
         res_df$status[i] <- "Insufficient data"
         next
     }
 
-    cocomod <- glm(cbind(success, failure) ~ 1, family = binomial)
+    cocomod <- tryCatch(glm(cbind(success, failure) ~ 1, family = binomial), error = function(e) e)
+    if("error" %in% class(cocomod)) next
     res_df$prop[i] <- exp(cocomod$coef) / (1+exp(cocomod$coef))
     ci <- confint(cocomod)
     res_df$lo[i] <- exp(ci[1]) / (1+exp(ci[1]))

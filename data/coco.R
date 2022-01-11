@@ -1,9 +1,9 @@
 suppressPackageStartupMessages(library(dplyr))
-
 library(tidyr)
+library(here)
 
 # load mutations specific to Omicron variant
-omicron <- read.csv('omicron-specific.csv', 
+omicron <- read.csv(here("data", 'omicron-specific.csv'), 
   row.names = 1, stringsAsFactors = FALSE)
 omicron <- omicron[!is.na(omicron$pos),]
 
@@ -11,9 +11,9 @@ omicron$X <- NULL  # remove duplicate row names
 omicron$label <- paste(omicron$type, omicron$pos, omicron$alt, sep="|")
 
 
-mfiles <- list.files("/data/wastewater/results", 
+mfiles <- list.files("results", 
     full.names = TRUE, pattern="*.mapped.csv$", recursive=TRUE)
-cfiles <- list.files("/data/wastewater/results", 
+cfiles <- list.files("results", 
     full.names = TRUE, pattern="*.coverage.csv$", recursive=TRUE)
 
 # determine coverage at omicron sites
@@ -78,24 +78,39 @@ counts$lab <- sapply(cfiles, function(x) {
   tokens <- strsplit(x, "/")[[1]]
   tokens[length(tokens)-2]
 })
+counts$folder<- sapply(strsplit(cfiles, "/"), function(x) x[length(x) - 1])
 
 # load metadata
-metas <- list.files("/data/wastewater/uploads", 
+metas <- list.files("uploads", 
     full.names = TRUE, pattern="*meta*", recursive=TRUE)
+metas <- metas[!grepl("template", metas)]
+metas <- metas[!grepl("fixed", metas)]
 m <- lapply(metas, function(x) {
   # Reading everything in as a character to avoid type issues (logical v. character)
-  meta <- read.csv(x, colClasses = "character")
+  meta <<- read.csv(x, colClasses = "character")
+  names(meta) <- tolower(names(meta))
+
+  fldrtmp <- strsplit(x, "/")[[1]]
+  meta$folder <- fldrtmp[length(fldrtmp) - 1]
+  meta$lab <- fldrtmp[length(fldrtmp) - 2]
+  meta$sample <- sapply(strsplit(meta$r1.fastq.filename, "\\_"), function(x) x[1])
+  if(any(meta$sample == "NE1-1001", na.rm = TRUE)) {
+    meta$sample[meta$sample == "NE1-1001"] <- meta$specimen.collector.sample.id[meta$sample == "NE1-1001"]
+  }
+
   meta
 })
 #m <- do.call(rbind, m)
 m2 <- dplyr::bind_rows(m)
 m3 <- m2 %>%
-    select(sample = Specimen.collector.sample.ID, 
+    select(sample, folder,
         coldate = sample.collection.date, 
         location = geolocation.name..region.,
         longitude = geolocation.latitude,
-        latitude = geolocation.longitude)
-counts <- left_join(counts, m3, by = "sample")
+        latitude = geolocation.longitude) %>%
+    filter(!is.na(sample)) %>%
+    distinct()
+counts <- left_join(counts, m3, by = c("sample", "folder"))
 
 
 # make a nicer coverage file too
@@ -106,18 +121,19 @@ names(cvr) <- ifelse(omicron$mut_aa=='None',
     omicron$mut_aa)
 
 cvr$sample <- counts$sample
+cvr$lab <- counts$lab
 
 # Long (tidy) data format
 counts_long <- pivot_longer(counts, 
-    -c(sample, lab, coldate, location, latitude, longitude),
+    -c(sample, lab, folder, coldate, location, latitude, longitude),
     names_to = "mutation", 
     values_to = "count")
-cvr_long <- pivot_longer(cvr, -sample,
+cvr_long <- pivot_longer(cvr, -c(sample, lab),
     names_to = "mutation", 
     values_to = "coverage")
 
-coco <- full_join(counts_long, cvr_long, by = c("sample", "mutation"))
+coco <- full_join(counts_long, cvr_long, by = c("sample", "lab", "mutation"))
 
-write.csv(coco, file = "coco.csv", row.names = FALSE)
+write.csv(coco, file = here("data", "coco.csv"), row.names = FALSE)
 
 

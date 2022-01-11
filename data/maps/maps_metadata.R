@@ -13,7 +13,7 @@ select <- dplyr::select
 
 # Get lat and lon from metadata
 meta <- read.csv(here("uploads", "metadata_fixed.csv")) %>%
-    select(sample = specimen.collector.sample.id, lab, lat, lon, 
+    select(sample = specimen.collector.sample.id, lab, folder, lat, lon, 
         date = sample.collection.date)
 
 coco <- read.csv(here("data", "coco.csv"))
@@ -23,16 +23,21 @@ coco <- coco[!is.na(coco$lat), ]
 
 # Prepare for the results
 res_df <- coco %>% 
-    select(sample, lab, date, location, lon, lat) %>%
+    select(sample, folder, lab, date, location, lon, lat) %>%
     distinct() %>%
     mutate(prop = rep(NA, n()), 
         lo = rep(NA, n()), hi = rep(NA, n()),
-        status = rep(NA, n()))
+        status = rep(NA, n()),
+        totol_succ = rep(NA, n()),
+        totol_fail = rep(NA, n())
+        )
 
 for (i in seq_len(nrow(res_df))) {
-    thiscoco <- coco[coco$sample == res_df$sample[i], ]
-    success <- thiscoco$count
-    failure <- thiscoco$coverage - success
+    thiscoco <- coco[coco$sample == res_df$sample[i] & coco$lab == res_df$lab[i] & coco$folder == res_df$folder[i], ]
+    success <- round(as.numeric(thiscoco$count))
+    failure <- round(as.numeric(thiscoco$coverage - success))
+    res_df$totol_fail[i] <- sum(failure, na.rm = TRUE)
+    res_df$totol_succ[i] <- sum(success, na.rm = TRUE)
 
     if (sum(success, na.rm = TRUE) < 3 | 
             sum(failure, na.rm = TRUE) < 10 |

@@ -18,12 +18,15 @@ for(meta in metas) {
     names(metai) <- tolower(names(metai))
     metai$sample.collection.date <- parse_date_time(metai$sample.collection.date, c("mdy", "dmy", "ymd"))
     metai <- left_join(metai, locs, by = c("geolocation.name..region." = "loc"))
+
     metai$lab <- ifelse(grepl("guelph", meta), "guelph", ifelse(grepl("waterloo", meta), "waterloo", "western"))
     if(any(grepl("^x", names(metai)))) {
         metai <- metai[, -which(grepl("^x", names(metai)))]
     }
     metai$sample <- ifelse(length(metai$specimen.collector.sample.id) < 1, 
         metai$library.id, metai$specimen.collector.sample.id)
+    fldrtmp <- strsplit(meta, "/")[[1]]
+    metai$folder <- fldrtmp[length(fldrtmp) - 1]
 
     if(meta == metas[1]) {
         all_meta <- metai
