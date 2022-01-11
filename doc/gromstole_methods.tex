@@ -93,6 +93,7 @@ The confidence interval of the proportion parameter is compared to an assumed se
 \begin{figure}[h!]
 \centering
 \begin{tikzpicture}[node distance=1cm]
+% Process Samples
 \node (waste) [startstop, text width=1.75cm] {Wastewater Samples};
 \node (wlist) [process, text width=1.75cm, right of=waste, xshift=1.5cm] {List of Mutations};
 \draw [arrow] (waste) -- (wlist);
@@ -101,27 +102,31 @@ The confidence interval of the proportion parameter is compared to an assumed se
 \node (wcov) [process, below of=wmut, yshift=-0.2cm, text width=2cm] {Coverage at All Positions};
 \draw [arrow] (wlist) -- (wcov);
 
-\node (nextstrain) [startstop, text width=1.75cm, below of=waste, yshift=-1.85cm] {NextStrain Sequence Data};
-\node (nsmut) [process, right of=nextstrain, xshift=1.66cm, text width=1.8cm, yshift=0.6cm] {Mutations in Variant of Interest};
+% Gather Unique mutations (in a grey rectangle)
+\node (nextstrain) [startstop, text width=1.75cm, below of=waste, yshift=-1.66cm] {NextStrain Sequences};
+\node (nsmut) [process, right of=nextstrain, xshift=1.5cm, text width=1.8cm, yshift=0.6cm] {Mutations in Variant of Interest};
 \node (nsomi) [process, below of=nsmut, text width=1.8cm, yshift=-0.4cm] {Mutations in Other Variants};
 \draw [arrow] (nextstrain) -- (nsmut);
 \draw [thick, dashed,->,>=stealth] (nextstrain) -- (nsomi);
-\draw [color=lightgray, thick, dashed](-1.15, -4.45) rectangle (3.8,-1.45);
-\node at (-1.2, -4.45) [below=2.3mm, right=-1.5mm] {\textcolor{gray}{Optional if Mutation List Known}};
-
-\node (uniques) [process, right of=nsmut, yshift=-0.5cm, xshift=1.75cm, text width=2cm] {``Unique'' Mutations for Variant};
+\draw [color=lightgray, thick, dashed](-1.15, -4.25) rectangle (3.65,-1.25);
+\node at (-1.2, -4.25) [below=2.3mm, right=-2mm] {\textcolor{gray}{Optional if Mutation List Known}};
+% Outside rectangle
+\node (uniques) [process, right of=nsmut, yshift=-0.5cm, xshift=1.7cm, text width=2cm] {``Unique'' Mutations for Variant};
 \draw [arrow] (nsmut) -- (uniques);
 \draw [arrow] (nsomi) -- (uniques);
 
-\node (detect) [process, right of=uniques, yshift=2.75cm, xshift=2.4cm, text width=3.6cm] {\hyphenchar\font=-1 Count and Coverage of ``Unique'' Variant Mutations in the Data \textcolor{gray}{(including coverage for unobserved mutations)}};
+% Used \hyphencahr\font=-1 to prevent words from hyphenating and wrapping to next line
+% Used \quad to control which words wrap to next line
+\node (detect) [process, right of=uniques, yshift=2.75cm, xshift=2.7cm, text width=3.9cm] {\hyphenchar\font=-1 Count and Coverage of the ``Unique'' Mutations for Variant \quad\quad\quad\textcolor{gray}{(including mutations not observed in samples)}};
 \draw [arrow] (uniques) -- (detect);
 \draw [arrow] (wmut) -- (detect);
 \draw [arrow] (wcov) -- (detect);
 
-\node (model) [startstop, right of=detect, xshift=2.5cm, text width=2cm] {Binomial Model};
+% End
+\node (model) [startstop, right of=detect, xshift=2.8cm, text width=2cm] {Binomial Regression Model};
 \draw [arrow] (detect) -- (model);
 \end{tikzpicture}
-\caption{The structure of our pipeline. NextStrain data are used to find the frequency of all mutations, then this is compared to the mutations of the variant (the dashed line indicates that this may or may not come from the NextStrain data) in order to find which mutations are common in the variant but uncommon in the population (``Unique'' Mutations). The wastewater samples are processed to determine which mutations are present and determine the number of times each position was observed (i.e., the coverage). The number of observations of the unique mutations is found, along with the coverage at the position of those mutations (the coverage is found regardless of whether that mutation was observed). Finally, a binomial model is used to estimate the proportion.}
+\caption{The structure of our pipeline. Wastewater samples are processed to find the number of times each mutation is observed along with the coverage at every position (relative to the reference genome). This information is combined with a list of mutations believed to be unique to the variant of interest (possibly from counts of mutations in known lineages from NextStrain). It is important to have the coverage for the position of each ``unique'' mutation, regardless of whether this was observed in the wastewater samples. The proportion is found via a binomial regression model.}
 \end{figure}
 
 
@@ -175,7 +180,7 @@ The \texttt{minimap2.py} script accepts a FASTQ file (or pair of FASTQ files for
 % Parsing into features by mapping to reference
 The \texttt{mutations.csv} file contains the mutation description (described below), the frequency of that mutation, the position relative to the reference, and the coverage at that position.
 This structure is demonstrated in Figure \ref{mapped}.
-As a demonstration, an intermediary step in finding he mutations and coverage of the short reads in Figure \ref{short-reads} is shown in Table \ref{aligned}
+As a demonstration, an intermediary step in finding he mutations and coverage of the short reads in Figure \ref{short-reads} is shown in Table \ref{aligned}.
 
 
 The mutation description includes the alteration relative to the reference, which is labelled as \texttt{$\sim$}, \texttt{+}, or \texttt{-} for polymorphism, insertion, or deletion, respectively.

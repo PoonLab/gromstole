@@ -52,7 +52,7 @@ reports/*.html
 results/*.pdf
 
 # ms - nothing but tex
-methods_ms/*
-!methods_ms/gromstole_methods.tex
-!methods_ms/methods_bib.bib
+doc/*
+!doc/gromstole_methods.tex
+!doc/methods_bib.bib
 
