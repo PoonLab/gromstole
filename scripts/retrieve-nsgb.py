@@ -116,6 +116,7 @@ def count_mutations(sequrl, lineages, refpath, binpath='minimap2', nthreads=1,
 
 
 if __name__ == "__main__":
+    # command line interface
     parser = argparse.ArgumentParser()
     parser.add_argument("outfile", type=argparse.FileType('w'), help="Path to write JSON output.")
     parser.add_argument("--sequrl", help="URL to Nextstrain sequences.fasta.xz file",

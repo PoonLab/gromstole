@@ -18,6 +18,7 @@ import re
 import json
 import time
 
+
 def encode_diffs_classic(row, reflen=29903, alphabet='ACGT'):
     """
     Serialize differences of query sequences to reference
