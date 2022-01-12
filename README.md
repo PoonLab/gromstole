@@ -32,20 +32,16 @@ python3 scripts/minimap2.py r1.fastq r2.fastq --outdir results --prefix name-of-
 
 For our analysis, autoprocess.py runs as a cron job, which monitors a specified directory for uploads and processes them automatically.
 
-### Determining Unique Mutations 
+### Determining lineage-specific mutation lists
 
 This section can be skipped if you have a pre-specified list of mutations. 
 
-Download the data from NextStrain, then count mutations by lineage, all in one script:
-
+Run the following script to stream genome data and metadata from the NextStrain open data feed, which counts mutations by lineage and stores the results in a JSON output file:
 ```sh
 python3 scripts/retrieve-nsgb.py data/count-mutations-nsgb.json
 # Other scripts expect compressed data and it's a smaller file
 gzip data/count-mutations-nsgb.json
 ```
-
-
-### Deriving mutation lists
 
 `voi-frequency.py` allows for an arbitrary number of lineage names. It outputs a csv where the first three columns are lineage, a boolean column (0s and 1s) for whether the lineage was one of the input lineage names, and the number of times each lineage was observed in the NextStrain data. 
 
