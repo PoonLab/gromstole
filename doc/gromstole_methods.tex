@@ -286,18 +286,23 @@ For each lineage, we start with an empty list and either add a mutation to the l
 Note that the record for a given lineage only contains mutations that have counts larger than 0; we do not need to add all mutations to all lineage records.
 Each record also contains the \emph{frequency} of each mutation within a lineage, i.e., the percent of sequences labelled with a lineage that contained a given mutation.
 When we refer to frequency of a mutation, we mean within a lineage rather than across all lineages.
-This is stored in a compressed \texttt{json} file format, with entries for each lineage, entries for each of that lineage's mutations, and the frequency of each mutation.
+This is stored in a compressed \texttt{json} file format, with entries for each lineage, each of that lineage's mutations, and the frequency of each mutation.
+The downloading and processing of NextStrain data is handled by \texttt{retrieve-nsgb.py}.
 
 
 
 \subsubsection{Variant-Specific Mutations}
 
-\begin{tightemize}
-    \item Obtaining mutations present in a variant from \texttt{minimap2} (noting that they are not enough to uniquely determine that variant))
-    \item Obtaining mutations from PANGO when GISAID is not quite labelled right
-    \item Comparison of background frequency to mutations (Omicron(95, 5)). 
-    \item Including sub-lineages
-\end{tightemize}
+With a list of mutations and their frequencies within lineages we are able to determine which mutations are ``unique'' to the variant of interest.
+We have written a python script to determine all of the mutations for a given set of variants and report the frequency of those mutations in all available lineages (including the variants of interest).
+We refer to ``unique'' mutations as those which are present in more than 95\% of the variant(s) of interest and also present in fewer than 5\% of the any other lineage available on NextStrain.
+Recall that these frequencies refer to the number of mutations among sequences labelled with a specific lineage, rather than across lineages.
+The word ``unique'' has appeared in quotation marks because we allow for the possibility of another lineage with 5\% of the sequences in that lineage having that mutation, so it is not strictly unique. 
+
+The scripts that we have written allow for a set of variants to be studied concurrently.
+This is particularly useful when investigating a variant such as Omicron, which has pangolin label B.1.1.529 and also has sublineages BA.1 and BA.2 at time of writing.
+Since our analyses currently only considering one variant at a time, these are saved to separate files for processing later in the pipeline.
+
 
 \begin{figure}[ht!]
 \vspace{2cm}
