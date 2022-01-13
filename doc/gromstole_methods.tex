@@ -320,13 +320,26 @@ Since our analyses currently only considering one variant at a time, these are s
 
 \section{Single Variant Detection}
 
-\begin{tightemize}
-    \item Motivation for Binomial GLMs
-    \item Description of Binomial GLMs (incl. confidence intervals)
-    \item Conservative 1\% sequencing error as our null hypothesis; not testing boundary of parameter space.
-    \item Batch processing of GLMs
-    \item Sensitivity analysis (using multiple definitions of variant-specific mutations, e.g. Omicronian(90, 10)).
-\end{tightemize}
+Our method of variant detection is uses every mutation that we have identified.
+We use a binomial model which assumes that each mutation should have approximately the same prevalence in the data and any deviation is simply random chance.
+In particular, the assumption is that there are a fixed number of SARS-CoV-2 genomes in the wastewater from which the sample was drawn, with a fixed proportion ($p$) of the variant of interest, and parts of the sequences are lost completely at random.
+The advantage of the parametric assumption is that we can calculate a confidence interval for the range of possible proportions in the population.
+
+The model is set up as follows.
+For mutation $i=1$ to $n$, the count for mutation $i$, and the coverage for mutation $i$,
+\begin{equation}
+\textrm{count}_i \sim \textrm{Binom}(p, \textrm{coverage}_i)
+\end{equation}
+In the above model, note that the proportion $p$ is the same for all mutations.
+This model is implemented in the R programming language using the \texttt{glm()} function.
+
+Even with our best attempt at defining our mutations will inevitably result in a mismatch between our chosen mutations and the mutations present in the variant of interest.
+This is due to the random variation in mutations from the natural evolution of SARS-CoV-2, which means that lineages that are not our variant of interest may gain mutations in our ``unique'' mutations.
+Because of this, we allow for extra variation in the proportion by fitting a quasi-binomial model \cite{needed}. % TODO: Reference from https://www.slu.se/globalassets/ew/org/centrb/statisticsslu/workshops/2014/overdispersion.pdf 
+This model produces the same estimate of the proportion but allows for larger estimates of the variance than would be possible in the binomial model and hence returns a larger confidence interval. 
+
+We use the confidence intervals to make our conclusion.
+Under the conservative assumption that Illumina sequencing methods have a sequencing error of 1\%, so we only claim detection if the lower bound of our confidence interval is larger than 0.01.
 
 
 
