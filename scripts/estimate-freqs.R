@@ -154,7 +154,7 @@ for (i in 1:nrow(counts)) {
   y <- as.integer(counts[i, 1:ncol(cvr)])  # number of "successes"
   n <- as.integer(cvr[i, ])  # number of trials
   # Avoid bars that will have huge error bars
-  if(sum(y, na.rm = TRUE) < 3 | max(n[y > 0], na.rm = TRUE) < 15) {
+  if(sum(y, na.rm = TRUE) < 3) {
     next
   }
   probs[i] <- tryCatch({
