@@ -34,7 +34,7 @@ For our analysis, autoprocess.py runs as a cron job, which monitors a specified 
 
 ### Determining lineage-specific mutation lists
 
-This section can be skipped if you have a pre-specified list of mutations. 
+This section can be skipped if you have a pre-specified list of mutations.  We maintain several lists in the `lineages/` directory.
 
 Run the following script to stream genome data and metadata from the NextStrain open data feed, which counts mutations by lineage and stores the results in a JSON output file:
 ```sh
