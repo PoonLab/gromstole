@@ -382,6 +382,5 @@ class SC2Locator:
         elif typ == '-':
             return 'del:{}:{}'.format(pos+1, alt)
 
-        # otherwise
-        return None
-
+        # otherwise synonymous nucleotide substitution
+        return '{}{}{}'.format(self.refseq[pos], pos+1, alt)
