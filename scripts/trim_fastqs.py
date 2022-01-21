@@ -2,13 +2,12 @@
 
 """
 Censor reads based on phiX quality data, and also trim adapter sequences.
-adapted from https://github.com/cfe-lab/MiCall/blob/master/micall/core/trim_fastqs.py
-as distributed under the AGPLv3 license
+Adapted from https://github.com/cfe-lab/MiCall/blob/master/micall/core/trim_fastqs.py
+as distributed under the AGPLv3 license.
 """
 
 import argparse
 import csv
-import shutil
 from gzip import GzipFile
 import itertools
 import math
@@ -18,7 +17,6 @@ import subprocess
 
 from io import TextIOWrapper
 from itertools import chain
-from pathlib import Path
 
 from Bio import SeqIO
 
@@ -80,10 +78,10 @@ def cut_all(fq1, fq2, out1, out2, datadir):
     purge_temp_files(rtrimmed)
 
 
-def purge_temp_files(filenames):
-    for filename in filenames:
+def purge_temp_files(tmpfiles):
+    for tmpfile in tmpfiles:
         try:
-            os.remove(filename)
+            os.remove(tmpfile.name)
         except OSError:
             # We tried to tidy up a temporary file, but it's not critical.
             pass
