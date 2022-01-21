@@ -81,7 +81,7 @@ def purge_temp_files(filenames):
 
 
 def cut_adapters(original_fastq1, original_fastq2, trimmed_fastq1, trimmed_fastq2, datadir):
-    adapter_files = [os.path.join(datadir, f'adapters_read{i}.fasta') for i in (1, 2)]
+    adapter_files = [f'{datadir}{os.sep}adapters_read{i}.fasta' for i in (1, 2)]
     subprocess.check_call([
         'cutadapt', '--quiet',
         '-a', 'file:' + adapter_files[0],
@@ -104,9 +104,9 @@ def cut_lr_primers(original_fastq1, original_fastq2, trimmed_fastq1, trimmed_fas
     ltrimmed.fastq file.
     """
     lr1 = 'left' if left else 'right_end'
-    primer_file1 = os.path.join(datadir, f'file:primers_sarscov2_{lr1}.fasta')
+    primer_file1 = f'file:{datadir}{os.sep}primers_sarscov2_{lr1}.fasta'
     lr2 = 'left_end' if left else 'right'
-    primer_file2 = os.path.join(datadir, f'file:primers_sarscov2_{lr2}.fasta')
+    primer_file2 = f'file:{datadir}{os.sep}primers_sarscov2_{lr2}.fasta'
     subprocess.check_call(['cutadapt', '--quiet',
                            '-g' if left else '-a', primer_file1,
                            '-A' if left else '-G', primer_file2,
