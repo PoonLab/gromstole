@@ -8,7 +8,7 @@ as distributed under the AGPLv3 license.
 
 import argparse
 import csv
-from gzip import GzipFile
+import gzip
 import itertools
 import math
 import os
@@ -135,7 +135,7 @@ def combine_primer_trimming(original_fastq1, original_fastq2, ltrimmed_fastq1, l
         start_trimmed_fastq=rtrimmed_fastq2,
         end_trimmed_fastq=ltrimmed_fastq2)
 
-    with open(trimmed_fastq1, 'w') as f1, open(trimmed_fastq2, 'w') as f2:
+    with gzip.open(trimmed_fastq1, 'w') as f1, gzip.open(trimmed_fastq2, 'w') as f2:
         for seq1, seq2 in zip(trimmed_sequences1, trimmed_sequences2):
             if len(seq1) > 0 and len(seq2) > 0:
                 SeqIO.write([seq1], f1, 'fastq')
@@ -190,7 +190,7 @@ def censor(original_file, bad_cycles_reader, censored_file, use_gzip=True,
     base_count = 0
     score_sum = 0.0
     if use_gzip:
-        src = GzipFile(fileobj=original_file)
+        src = gzip.GzipFile(fileobj=original_file)
     src = TextIOWrapper(src)
 
     for ident, seq, opt, qual in itertools.zip_longest(src, src, src, src):
@@ -244,8 +244,8 @@ if __name__ == '__main__':
 
     parser.add_argument('fq1', help='<input> FASTQ.gz containing original reads (read 1)')
     parser.add_argument('fq2', help='<input> FASTQ.gz containing original reads (read 2)')
-    parser.add_argument('out1', help='<output> uncompressed FASTQ containing trimmed reads (read 1)')
-    parser.add_argument('out2', help='<output> uncompressed FASTQ containing trimmed reads (read 2)')
+    parser.add_argument('out1', help='<output> FASTQ.gz containing trimmed reads (read 1)')
+    parser.add_argument('out2', help='<output> FASTQ.gz containing trimmed reads (read 2)')
     parser.add_argument('--datadir', default=os.getcwd(),
                         help='<input> path to directory containing adapter and primer FASTA files')
 
