@@ -23,6 +23,15 @@ from pathlib import Path
 from Bio import SeqIO
 
 
+def temp_fastq(count=1):
+    if count == 1:
+        return NamedTemporaryFile(delete=False, suffix='.fastq')
+    elif count > 1:
+        return [NamedTemporaryFile(delete=False, suffix='.fastq') for _ in range(count)]
+    else:
+        return None
+
+
 def trim(fq1, fq2, out1, out2, badfile=None, use_gzip=True, datadir=os.getcwd()):
     """
     :param fq1:  str, path to first FASTQ file
@@ -38,10 +47,10 @@ def trim(fq1, fq2, out1, out2, badfile=None, use_gzip=True, datadir=os.getcwd())
             bad_cycles = list(csv.DictReader(bad_cycles))
 
         src1 = open(fq1, 'rb')
-        dest1 = NamedTemporaryFile(delete=False)
+        dest1 = temp_fastq()
         censor(src1, bad_cycles, dest1.name, use_gzip, cycle_sign=1)
         src2 = open(fq2, 'rb')
-        dest2 = NamedTemporaryFile(delete=False)
+        dest2 = temp_fastq()
 
         censor(src2, bad_cycles, dest2.name, use_gzip, cycle_sign=-1)
         cut_all(dest1, dest2, out1, out2, datadir=datadir)
@@ -51,14 +60,14 @@ def trim(fq1, fq2, out1, out2, badfile=None, use_gzip=True, datadir=os.getcwd())
 
 
 def cut_all(fq1, fq2, out1, out2, datadir):
-    dedapted = [NamedTemporaryFile(delete=False), NamedTemporaryFile(delete=False)]
+    dedapted = temp_fastq(2)
     cut_adapters(fq1, fq2, dedapted[0].name, dedapted[1].name, datadir)
 
-    ltrimmed = [NamedTemporaryFile(delete=False), NamedTemporaryFile(delete=False)]
+    ltrimmed = temp_fastq(2)
     cut_lr_primers(dedapted[0].name, dedapted[1].name, ltrimmed[0].name, ltrimmed[1].name,
                    datadir=datadir, left=True)
 
-    rtrimmed = [NamedTemporaryFile(delete=False), NamedTemporaryFile(delete=False)]
+    rtrimmed = temp_fastq(2)
     cut_lr_primers(dedapted[0].name, dedapted[1].name, rtrimmed[0].name, rtrimmed[1].name,
                    datadir=datadir, left=False)
 
