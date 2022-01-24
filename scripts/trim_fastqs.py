@@ -135,7 +135,7 @@ def combine_primer_trimming(original_fastq1, original_fastq2, ltrimmed_fastq1, l
         start_trimmed_fastq=rtrimmed_fastq2,
         end_trimmed_fastq=ltrimmed_fastq2)
 
-    with gzip.open(trimmed_fastq1, 'w') as f1, gzip.open(trimmed_fastq2, 'w') as f2:
+    with gzip.open(trimmed_fastq1, 'wt') as f1, gzip.open(trimmed_fastq2, 'wt') as f2:
         for seq1, seq2 in zip(trimmed_sequences1, trimmed_sequences2):
             if len(seq1) > 0 and len(seq2) > 0:
                 SeqIO.write([seq1], f1, 'fastq')
