@@ -11,8 +11,8 @@ outfile <- args[2]
 # parse JSON
 run.dir <- input$run.dir
 lineage <- input$lineage
-counts <- input$counts
 cvr <- input$coverage
+counts <- input$counts[names(input$coverage)]
 estimate <- input$estimate
 metadata <- input$metadata
 metadata$coldate <- as.Date(metadata$coldate)
