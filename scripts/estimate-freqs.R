@@ -21,13 +21,84 @@ if (length(args) > 3) {
   metafile <- args[4]
 }
 
+
+#' re.findall
+#'
+#' Emulate behaviour of Python's re.findall() function
+#'
+#' @param pat:  regex pattern
+#' @param s:  character, a single string
+#' @return character, vector of all matching substrings
+re.findall <- function(pat, s) {
+  if (!is.character(s)) {
+    stop("re.findall() requires a character object for input 's'")
+  }
+  matches <- gregexpr(pat, s)
+  index <- as.integer(matches[[1]])
+  match.length <- attr(matches[[1]], 'match.length')
+  
+  sapply(1:length(index), function(i) {
+    start <- index[i]
+    stop <- start + match.length[i] - 1
+    substr(s, start, stop)
+  })
+}
+
+
+orfs <- list(
+  'orf1a'= c(265, 13468),
+  'orf1b'= c(13467, 21555),
+  'S'= c(21562, 25384),
+  'orf3a'= c(25392, 26220),
+  'E'= c(26244, 26472),
+  'M'= c(26522, 27191),
+  'orf6'= c(27201, 27387),
+  'orf7a'= c(27393, 27759),
+  'orf7b'= c(27755, 27887),
+  'orf8'= c(27893, 28259),
+  'N'= c(28273, 29533),
+  'orf10'= c(29557, 29674)
+)
+
+
 require(lubridate)
 require(jsonlite)
 
 # load the lineage definition (mutation list)
 lineage <- gsub("^c|\\.json$", "", basename(stelfile))
-constellation <- read_json(stelfile, simplifyVector = T)
+constellation <- jsonlite::read_json(stelfile, simplifyVector = TRUE)
 
+# convert constellation to label notation in the mapped files
+sites <- lapply(constellation$sites, function(d) {
+  toks <- toupper(strsplit(d, ":")[[1]])
+
+  if (toks[1] != "DEL" && toks[1] != "NUC")
+    toks <- c("aa", toks)
+  
+  if (toks[2] == "S" || toks[2] == "SPIKE") {
+    toks[[2]] <- "S"
+  } else if (toks[1] == "DEL") {
+    toks[[1]] <- "del"
+  } else if (toks[1] == "NUC") {
+    toks <- toks[-1]
+  } else if (toks[2] == "ORF1AB") {
+    toks[[2]] <- "orf1a" #FIXME: Assume orf1a for now
+  } else if (nchar(toks[2]) >= 3 && substring(toks[2], 1, 3) == "ORF") {
+    toks[[2]] <- tolower(toks[2])
+  }
+  
+  if (grepl("+", toks[1], fixed = TRUE)) {
+    ins <- strsplit(toks[[1]], split = "[+]")[[1]]
+    toks[[1]] <- gsub(" ", "", paste("+", ins[1], ".", ins[2]))
+  }
+  toks <- paste(toks, collapse = ":")
+})
+
+sites <- unlist(sites, recursive = FALSE)
+
+# Initialize list for constellation$site positions
+pos <- rep(NA, length(sites))
+names(pos) <- sites
 
 # locate data files
 require(here)
@@ -46,20 +117,6 @@ if(length(mfiles) != length(cfiles))
   stop("Mismatch between number of *.mapped.csv and *.coverage.csv files")
 
 
-# import coverage data
-cvr <- sapply(cfiles, function(f) {
-  coverage <- read.csv(f, stringsAsFactors = FALSE)
-  # NOTE: coverage$position is 0-index, mutlist$pos is 1-index
-  idx <- match(mutlist$pos, coverage$position+1)
-  coverage$coverage[idx[!is.na(idx)]]
-})
-row.names(cvr) <- mutlist$label
-cvr <- as.data.frame(cvr)
-names(cvr) <- sapply(strsplit(colnames(cvr), split = "/"), function(x) {
-  strsplit(x[length(x)], split = "\\.")[[1]][1]
-})
-
-
 # import mutation frequency data
 maps <- sapply(mfiles, function(f) {
   mapped <- read.csv(f, stringsAsFactors = FALSE)
@@ -69,17 +126,60 @@ maps <- sapply(mfiles, function(f) {
                        function(x) {
                          gsub("^\\.", "", x[2])
                        })
-  # convert to omicron label type
-  mapped$key <- paste(mapped$type, mapped$pos, mapped$alt, sep='|')
   
-  index <- match(mutlist$key, mapped$key)
+  mapped$label <- gsub("^~", "", mapped$label)
+   
+  index_label <- match(sites, mapped$label)
+  index <- match(sites, mapped$mutation)
+  
+  for (i in 1:length(index)) {
+    if (!is.na(index_label[i])) {
+      index[[i]] <- index_label[[i]]
+    }
+    if (!is.na(index[[i]]) && is.na(pos[[i]])) {
+      pos[[i]] <<- mapped$pos[[index[[i]]]]
+    }
+  }
   mapped$frequency[index]
 })
-row.names(maps) <- mutlist$label
+row.names(maps) <- constellation$sites
 maps <- as.data.frame(maps)
 
 # set column names to sample identifiers
 names(maps) <- sapply(strsplit(colnames(maps), split = "/"), function(x) {
+  strsplit(x[length(x)], split = "\\.")[[1]][1]
+})
+
+# Assign position values if the site doesn't appear in the mapped files
+for (i in 1:length(pos)) {
+  if (is.na(pos[[i]])) {
+    toks <- strsplit(sites[i], ":")[[1]]
+    if (length(toks) == 1) {
+      num <- re.findall("\\d+", toks[1])
+      pos[[i]] <- num
+    } else if (toks[1] == "del") {
+      pos[[i]] <- toks[2]
+    }
+    else {
+      #TODO: Error handling
+      start_pos <- orfs[[toks[2]]][1]
+      codon <- as.numeric(re.findall("\\d+", toks[3]))
+      pos[[i]] <- start_pos + (codon - 1) * 3
+    }
+  }
+}
+
+
+# import coverage data
+cvr <- sapply(cfiles, function(f) {
+  coverage <- read.csv(f, stringsAsFactors = FALSE)
+  # NOTE: coverage$position is 0-index, pos is 1-index
+  idx <- match(pos, coverage$position+1)
+  coverage$coverage[idx[!is.na(idx)]]
+})
+row.names(cvr) <- constellation$sites
+cvr <- as.data.frame(cvr)
+names(cvr) <- sapply(strsplit(colnames(cvr), split = "/"), function(x) {
   strsplit(x[length(x)], split = "\\.")[[1]][1]
 })
 
@@ -96,11 +196,11 @@ for (i in 1:nrow(maps)) {
 # convert to integer counts
 counts <- as.data.frame(t(maps*cvr))
 row.names(counts) <- NULL
-names(counts) <- mutlist$label
+names(counts) <- constellation$sites
 row.names(counts) <- names(maps)
 
 cvr <- as.data.frame(t(cvr))
-names(cvr) <- mutlist$label
+names(cvr) <- constellation$sites
 
 # parse metadata, dealing with varying header labels and date formats
 metadata <- data.frame(sample=names(maps))
