@@ -44,7 +44,7 @@ re.findall <- function(pat, s) {
   })
 }
 
-
+# coordinates of reading frames in reference
 orfs <- list(
   'orf1a'= c(265, 13468),
   'orf1b'= c(13467, 21555),
@@ -219,26 +219,27 @@ row.names(cvr2) <- sites
 names(cvr2) <- sample.id
 
 
-# set zeroes for sites with non-zero coverage
-# FIXME: this is not very elegant
-mask <- (cvr > 0)
-for (i in 1:nrow(maps)) {
-  for (j in 1:ncol(maps)) {
-    if (is.na(maps[i,j]) & mask[i,j]) { maps[i,j] <- 0 }
+if (any(dim(cvr) != dim(cvr2))) stop("Mismatch in coverage matrices")
+for (i in 1:nrow(cvr)) {
+  for (j in 1:ncol(cvr)) {
+    if (is.na(cvr[i,j])) {
+      # fill in missing values from coverage files
+      cvr[i,j] <- cvr2[i,j]
+    }
+    if (cvr[i,j] > 0 & is.na(counts[i,j])) {
+      # set missing counts to zero if coverage exists
+      counts[i,j] <- 0
+    }
   }
 }
 
-# convert to integer counts
-counts <- as.data.frame(t(maps*cvr))
-row.names(counts) <- NULL
-names(counts) <- constellation$sites
-row.names(counts) <- names(maps)
-
+# convert to integer counts and transpose so mutations are columns
+counts <- as.data.frame(t(counts*cvr))
 cvr <- as.data.frame(t(cvr))
-names(cvr) <- constellation$sites
+
 
 # parse metadata, dealing with varying header labels and date formats
-metadata <- data.frame(sample=names(maps))
+metadata <- data.frame(sample=sample.id)
 metadata$lab <- sapply(cfiles, function(x) {
   tokens <- strsplit(x, "/")[[1]]
   tokens[length(tokens)-2]
