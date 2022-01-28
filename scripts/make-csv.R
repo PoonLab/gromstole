@@ -24,6 +24,17 @@ if (is.null(site)) {
 fq <- input$counts / coverage
 fq[coverage<10] <- NA
 
+if (is.null(input$estimate$lower.95)) {
+  lower.95 <- NA
+} else {
+  lower.95 <- 100*input$estimate$lower.95
+}
+if (is.null(input$estimate$upper.95)) {
+  upper.95 <- NA
+} else {
+  upper.95 <- 100*input$estimate$upper.95
+}
+
 df <- data.frame(
   coldate=coldate,
   site=site,
@@ -33,8 +44,8 @@ df <- data.frame(
   #med.freq=apply(fq, 1, function(x) 100*median(x, na.rm=T)),
   #max.freq=apply(fq, 1, function(x) 100*max(x, na.rm=T))
   est=100*input$estimate$est,
-  lower.95=ifelse(is.null(input$estimate$lower.95), NA, 100*input$estimate$lower.95),
-  upper.95=ifelse(is.null(input$estimate$upper.95), NA, 100*input$estimate$upper.95)
+  lower.95=lower.95,
+  upper.95=upper.95
 )
 
 write.table(t(c("", "Date collected", "Site", 
