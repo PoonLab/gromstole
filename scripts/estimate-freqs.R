@@ -294,9 +294,9 @@ for (i in 1:nrow(counts)) {
   y <- as.integer(counts[i, 1:ncol(cvr)])  # number of "successes"
   n <- as.integer(cvr[i, ])  # number of trials
   # Avoid bars that will have huge error bars
-  if(sum(y, na.rm = TRUE) < 3) {
-    next
-  }
+  #if(sum(y, na.rm = TRUE) < 3) {
+  #  next
+  #}
   probs[i] <- tryCatch({
     fit <- glm(cbind(y, n-y) ~ 1, family='quasibinomial')
     exp(fit$coef) / (1+exp(fit$coef))  # probability
