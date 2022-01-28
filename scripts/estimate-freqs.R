@@ -70,6 +70,7 @@ refseq <- read.fasta("data/NC_045512.fa")[[1]]
 # load the lineage definition (mutation list)
 lineage <- gsub("^c|\\.json$", "", basename(stelfile))
 constellation <- jsonlite::read_json(stelfile, simplifyVector = TRUE)
+constellation$sites <- unique(constellation$sites)
 
 # Calculate the length of orf1a to determine if a mutation is in orf1a or orf1b
 len_1a <- (orfs[['orf1a']][2]-orfs[['orf1a']][1])/3 + 1
