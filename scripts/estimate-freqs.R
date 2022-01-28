@@ -68,6 +68,9 @@ require(jsonlite)
 lineage <- gsub("^c|\\.json$", "", basename(stelfile))
 constellation <- jsonlite::read_json(stelfile, simplifyVector = TRUE)
 
+# Calculate the length of orf1a to determine if a mutation is in orf1a or orf1b
+len_1a <- (orfs[['orf1a']][2]-orfs[['orf1a']][1])/3 + 1
+
 # convert constellation to label notation in the mapped files
 sites <- lapply(constellation$sites, function(d) {
   toks <- toupper(strsplit(d, ":")[[1]])
@@ -81,8 +84,16 @@ sites <- lapply(constellation$sites, function(d) {
     toks[[1]] <- "del"
   } else if (toks[1] == "NUC") {
     toks <- toks[-1]
-  } else if (toks[2] == "ORF1AB") {
-    toks[[2]] <- "orf1a" #FIXME: Assume orf1a for now
+  } else if (toks[2] == "ORF1AB" || toks[2] == "1AB") {
+    num <- as.numeric(re.findall("\\d+", toks[3]))
+    if (num <= len_1a) {
+      toks[[2]] <- "orf1a"
+    } else {
+      # Determine nucleotide position relative to the start of orf1b
+      new_pos <- (((num-1) * 3 + orfs[['orf1a']][1]) - orfs[['orf1b']][1])/3
+      toks[[3]] <- gsub(num, floor(new_pos) + 1, toks[[3]])
+      toks[[2]] <- "orf1b"
+    }
   } else if (nchar(toks[2]) >= 3 && substring(toks[2], 1, 3) == "ORF") {
     toks[[2]] <- tolower(toks[2])
   }
