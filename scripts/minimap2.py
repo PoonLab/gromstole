@@ -1,7 +1,7 @@
 """
 Adapted from https://github.com/PoonLab/covizu/covizu/minimap2.py
 """
-
+import csv
 import subprocess
 import argparse
 import re
@@ -27,8 +27,7 @@ def cutadapt(fq1, fq2, adapter="AGATCGGAAGAGC", ncores=1, minlen=10):
     # FIXME: need to be able to pass different path to executable
     cmd = ['cutadapt', '-a', adapter, '-A', adapter, '-o', of1.name, '-p', of2.name,
            '-j', str(ncores), '-m', str(minlen), '--quiet', fq1, fq2]
-    print(cmd)
-    p = subprocess.check_call(cmd)
+    _ = subprocess.check_call(cmd)
     of1.close()
     of2.close()
     return of1.name, of2.name
@@ -129,10 +128,9 @@ def encode_diffs(row, reflen=29903, alphabet='ACGT', minq=10):
         substr = seq[left:(left + length)]
         subqual = qual[left:(left + length)]
 
-        if operator == 'X':
-            # base mismatches
+        if operator == 'X':  # base mismatches
             if 'N' in substr:
-                # for now, assume the whole substring is bs
+                # FIXME: for now, assume the whole substring is bs
                 missing.append(tuple([rpos, rpos+length]))
             else:
                 # assume adjacent mismatches are independent substitutions
@@ -149,23 +147,15 @@ def encode_diffs(row, reflen=29903, alphabet='ACGT', minq=10):
                         missing.append(tuple([rpos+i, rpos+i+1]))
             left += length
             rpos += length
-
-        elif operator == 'S':
-            # discard soft clip
+        elif operator == 'S':  # discard soft clip
             left += length
-
-        elif operator == 'I':
-            # insertion relative to reference
+        elif operator == 'I':  # insertion relative to reference
             diffs.append(tuple(['+', rpos, substr]))
             left += length
-
-        elif operator == 'D':
-            # deletion relative to reference
+        elif operator == 'D':  # deletion relative to reference
             diffs.append(tuple(['-', rpos, length]))
             rpos += length
-
-        elif operator == '=':
-            # exact match
+        elif operator == '=':  # exact match
             left += length
             rpos += length
 
@@ -239,13 +229,14 @@ def merge_diffs(diff1, diff2, miss1, miss2):
         return return_diffs, [cov_union]
 
 
-def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
+def parse_mm2(mm2, locator, paired=True, limit=None, maxpos=29903):
     """
     Iterate over minimap2 output
     :param mm2:  generator, yields tuples of SAM output from minimap2
     :param locator:  SC2locator object, maps mutations to nicer notation
     :param paired:  logical, if False, treat as single-end reads
-    :param stop:  int, limit to number of paired reads that mapped to sc2 to report
+    :param limit:  int, limit to number of paired reads that mapped to sc2 to report,
+                  for debugging (default None)
     :param maxpos:  int, genome length
     :return:  list, features for every pair of reads
               dict, coverage per nucleotide position
@@ -253,11 +244,11 @@ def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
     count = 0
     total_coverage = dict([(pos, 0) for pos in range(maxpos)])
     res = []
-    iter = matchmaker(mm2) if paired else mm2
+    rows = matchmaker(mm2) if paired else mm2
 
-    for row in iter:
+    for row in rows:
         count += 1
-        if stop and count > stop:
+        if limit and count > limit:
             break
 
         if paired:
@@ -275,6 +266,7 @@ def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
                     continue  # adjacent missing intervals
                 coverage.append(tuple([left, right]))
 
+        # TODO: adjust coverage for primers
         for left, right in coverage:
             for pos in range(left, right):
                 total_coverage[pos] += 1
@@ -284,6 +276,11 @@ def parse_mm2(mm2, locator, paired=True, stop=1e6, maxpos=29903):
         res.append({"diff": diffs, "mutations": mut})
 
     return res, total_coverage
+
+
+def assign_amplicon(coverage, coords):
+    """ Based on mapped coordinates, determine which amplicon the read mapped to """
+    pass
 
 
 def get_frequencies(res, coverage):
@@ -320,6 +317,7 @@ def get_frequencies(res, coverage):
 
 
 def make_filename(outdir, prefix, suffix, replace=False):
+    """ Utility function for command-line interface """
     filename = os.path.join(outdir, "{}.{}".format(prefix.strip('.'), suffix.strip('.')))
     if os.path.exists(filename) and not replace:
         print("Output file {} already exists, use --replace to overwrite".format(filename))
@@ -343,17 +341,17 @@ def process(fq1, fq2, ref, nthread, binpath, limit):
     """
     mm2 = minimap2(fq1, fq2, ref=ref, nthread=nthread, path=binpath)
     locator = SC2Locator(ref_file=ref)
-    res, coverage = parse_mm2(mm2, locator, paired=fq2 is not None, stop=limit)
+    res, coverage = parse_mm2(mm2, locator, paired=fq2 is not None, limit=limit)
     counts = get_frequencies(res, coverage)
     return counts, coverage
 
 
 def write_frequencies(counts, coverage, outfile):
     """
-
-    :param counts:
-    :param coverage:
-    :param outfile:
+    Report mutation frequencies (coutns) and coverage to a CSV file
+    :param counts:  dict, mutation counts keyed by label, from get_frequencies()
+    :param coverage:  dict, coverage keyed by reference position, from parse_mm2()
+    :param outfile:  str, path to write CSV output
     :return:
     """
     # export mutation frequencies
@@ -367,11 +365,22 @@ def write_frequencies(counts, coverage, outfile):
 
 
 def write_coverage(coverage, covfile):
-    # export coverage statistics
+    """
+    export coverage statistics
+    :param coverage:  dict, coverage keyed by reference position, from parse_mm2()
+    :param covfile:  str, path to write CSV output
+    :return:
+    """
     with open(covfile, 'w') as handle:
         handle.write('position,coverage\n')
         for pos, count in coverage.items():
             handle.write('{},{}\n'.format(pos, count))
+
+
+def load_coords(csvfile):
+    rows = csv.DictReader(csvfile)
+    for row in rows:
+        pass
 
 
 if __name__ == '__main__':
@@ -392,17 +401,22 @@ if __name__ == '__main__':
                         help="<option> path to minimap2 executable")
     parser.add_argument('-t', '--thread', type=int, default=3,
                         help="<option> number of threads")
-    parser.add_argument('--ref', type=str, required=True,
+    parser.add_argument('--ref', type=str, default="data/NC_045512.fa",
                         help="<input> path to target FASTA (reference)")
+    parser.add_argument('--coords', type=str, default="data/tile-coords.csv",
+                        help="<input> path to CSV of amplicon primer coordinates")
     parser.add_argument('--nocut', action='store_true', help='bypass cutadapt')
 
     args = parser.parse_args()
+
+    if args.prefix is None:
+        args.prefix = '_'.join(os.path.basename(args.fq1).split('_')[:2])
+        print(f"Defaulting output prefix stem to {args.prefix}")
 
     # check output files
     outfile = make_filename(args.outdir, args.prefix, "mapped.csv", replace=args.replace)
     covfile = make_filename(args.outdir, args.prefix, "coverage.csv", replace=args.replace)
 
-    # adapter trimming
     if args.nocut:
         counts, coverage = process(
             fq1=args.fq1, fq2=args.fq2, ref=args.ref, nthread=args.thread,

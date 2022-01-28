@@ -1,0 +1,4 @@
+[submodule "constellations"]
+	path = constellations
+	url = https://github.com/cov-lineages/constellations.git
+        ignore = all

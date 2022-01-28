@@ -11,8 +11,8 @@ outfile <- args[2]
 # parse JSON
 run.dir <- input$run.dir
 lineage <- input$lineage
-counts <- input$counts
 cvr <- input$coverage
+counts <- input$counts[names(input$coverage)]
 estimate <- input$estimate
 metadata <- input$metadata
 metadata$coldate <- as.Date(metadata$coldate)
@@ -59,8 +59,8 @@ for (i in 1:nrow(cvr)) {
   }
 }
 
-text(x=dy, y=dy*(nrow(cvr)+1), adj=0.5, label="Coverage", cex=0.8)
-legend(x=dy, y=dy*(nrow(cvr)+1), legend=c("1-9", "10-99", "100+"), 
+text(x=dy, y=dy*(nrow(cvr)+2), adj=0.5, label="Coverage", cex=0.8)
+legend(x=dy, y=dy*(nrow(cvr)+2), legend=c("1-9", "10-99", "100+"), 
        fill=pal2[2:4], bty='n', horiz=T, adj=-0.1, xjust=0.5, cex=0.7, x.intersp=0)
 title(xlab=paste(" ", run.dir), outer=TRUE, adj=0, cex.lab=0.5, 
       font=1, line=-1)
