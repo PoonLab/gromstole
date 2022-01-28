@@ -179,10 +179,15 @@ names(cvr) <- sample.id
 
 # determine nucleotide position of constellation mutations 
 positions <- as.data.frame(sapply(maps, function(x) x$pos))
-pos <- as.integer(apply(positions, 1, function(r) {
-  tab <- table(r)
-  as.integer(names(tab)[which.max(tab)])
-}))
+if (all(is.na(positions))) {
+  pos <- rep(NA, length(sites))
+} else {
+  pos <- as.integer(apply(positions, 1, function(r) {
+    tab <- table(r)
+    as.integer(names(tab)[which.max(tab)])
+  }))  
+}
+
 
 # handle missing positions (mutation never observed)
 for (i in which(is.na(pos))) {
