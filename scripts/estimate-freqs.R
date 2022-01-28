@@ -75,7 +75,7 @@ constellation <- jsonlite::read_json(stelfile, simplifyVector = TRUE)
 len_1a <- (orfs[['orf1a']][2]-orfs[['orf1a']][1])/3 + 1
 
 # convert constellation to label notation in the mapped files
-sites <- lapply(constellation$sites, function(d) {
+sites <- lapply(unique(constellation$sites), function(d) {
   toks <- toupper(strsplit(d, ":")[[1]])
 
   if (toks[1] != "DEL" && toks[1] != "NUC")
@@ -110,9 +110,6 @@ sites <- lapply(constellation$sites, function(d) {
 
 sites <- unlist(sites, recursive = FALSE)
 
-# Initialize list for constellation$site positions
-pos <- rep(NA, length(sites))
-names(pos) <- sites
 
 # locate data files
 require(here)
@@ -132,7 +129,10 @@ if(length(mfiles) != length(cfiles))
 
 
 # import mutation frequency data
-maps <- sapply(mfiles, function(f) {
+maps <- lapply(mfiles, function(f) {
+  pos <- rep(NA, length(sites))
+  names(pos) <- sites
+  
   mapped <- read.csv(f, stringsAsFactors = FALSE)
   mapped$type <- substr(mapped$label, 1, 1)
   mapped$pos <- mapped$position+1
@@ -155,51 +155,66 @@ maps <- sapply(mfiles, function(f) {
       index[[i]] <- index_label[[i]]
     }
     if (!is.na(index[[i]]) && is.na(pos[[i]])) {
-      pos[[i]] <<- mapped$pos[[index[[i]]]]
+      pos[i] <- mapped$pos[index[i]]
     }
   }
-  mapped$frequency[index]
+  list(counts=mapped$frequency[index], 
+       coverage=mapped$coverage[index],
+       pos=pos)
 })
-row.names(maps) <- constellation$sites
-maps <- as.data.frame(maps)
 
-# set column names to sample identifiers
-names(maps) <- sapply(strsplit(colnames(maps), split = "/"), function(x) {
+counts <- as.data.frame(sapply(maps, function(x) x$counts))
+row.names(counts) <- sites
+
+sample.id <- sapply(strsplit(mfiles, split = "/"), function(x) {
   strsplit(x[length(x)], split = "\\.")[[1]][1]
 })
+names(counts) <- sample.id
 
-# Assign position values if the site doesn't appear in the mapped files
-for (i in 1:length(pos)) {
-  if (is.na(pos[[i]])) {
-    toks <- strsplit(sites[i], ":")[[1]]
-    if (length(toks) == 1) {
-      num <- re.findall("\\d+", toks[1])
-      pos[[i]] <- num
-    } else if (toks[1] == "del") {
-      pos[[i]] <- toks[2]
-    }
-    else {
-      #TODO: Error handling
-      start_pos <- orfs[[toks[2]]][1]
-      codon <- as.numeric(re.findall("\\d+", toks[3]))
-      pos[[i]] <- start_pos + (codon - 1) * 3
-    }
+cvr <- as.data.frame(sapply(maps, function(x) x$coverage))
+row.names(cvr) <- sites
+names(cvr) <- sample.id
+
+# determine nucleotide position of constellation mutations 
+positions <- as.data.frame(sapply(maps, function(x) x$pos))
+pos <- as.integer(apply(positions, 1, function(r) {
+  tab <- table(r)
+  as.integer(names(tab)[which.max(tab)])
+}))
+
+# handle missing positions (mutation never observed)
+for (i in which(is.na(pos))) {
+  # guess from mutation annotation
+  toks <- strsplit(sites[i], ":")[[1]]
+  if (length(toks) == 1) {
+    # nucleotide substitution, parse position directly
+    num <- re.findall("\\d+", toks[1])
+    pos[i] <- as.integer(num)
+  } 
+  else if (toks[1] == "del") {
+    # deletion annotation also contains position
+    pos[i] <- as.integer(toks[2])
+  }
+  else {
+    # use first codon position for AA substitution
+    # TODO: Error handling
+    start_pos <- orfs[[toks[2]]][1]  # look up ref coord
+    codon <- as.integer(re.findall("\\d+", toks[3]))
+    pos[i] <- start_pos + (codon-1)*3
   }
 }
 
 
-# import coverage data
-cvr <- sapply(cfiles, function(f) {
+# import coverage data to supplement missing coverage
+cvr2 <- sapply(cfiles, function(f) {
   coverage <- read.csv(f, stringsAsFactors = FALSE)
   # NOTE: coverage$position is 0-index, pos is 1-index
   idx <- match(pos, coverage$position+1)
-  coverage$coverage[idx[!is.na(idx)]]
+  coverage$coverage[idx]
 })
-row.names(cvr) <- constellation$sites
-cvr <- as.data.frame(cvr)
-names(cvr) <- sapply(strsplit(colnames(cvr), split = "/"), function(x) {
-  strsplit(x[length(x)], split = "\\.")[[1]][1]
-})
+cvr2 <- as.data.frame(cvr2)
+row.names(cvr2) <- sites
+names(cvr2) <- sample.id
 
 
 # set zeroes for sites with non-zero coverage
