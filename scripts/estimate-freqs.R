@@ -63,6 +63,9 @@ orfs <- list(
 
 require(lubridate)
 require(jsonlite)
+require(seqinr)
+
+refseq <- read.fasta("data/NC_045512.fa")[[1]]
 
 # load the lineage definition (mutation list)
 lineage <- gsub("^c|\\.json$", "", basename(stelfile))
@@ -139,8 +142,12 @@ maps <- sapply(mfiles, function(f) {
                        })
   
   mapped$label <- gsub("^~", "", mapped$label)
-   
   index_label <- match(sites, mapped$label)
+  
+  # retrieve reference nucleotides for synonymous substitutions (nuc:)
+  mapped$mutation[mapped$mutation=='None'] <- 
+    paste(toupper(refseq[mapped$pos[mapped$mutation=='None']]), 
+          mapped$label[mapped$mutation=='None'], sep='')
   index <- match(sites, mapped$mutation)
   
   for (i in 1:length(index)) {
