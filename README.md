@@ -1,11 +1,8 @@
-## Description
-
 Gromstole is collection of Python and R scripts to estimate the relative frequencies of different SARS-CoV-2 [lineages](https://cov-lineages.org/), including specific "variants of concern", from next-generation sequence data (FASTQ) derived from wastewater samples.  This includes:
 * a wrapper script (`minimap2.py`) to rapidly stream output from the reference mapping program [minimap](https://github.com/lh3/minimap2) to extract coverage and mutation frequency statistics for each sample;
-* a script (`retrieve-nsgb.py`) for streaming an [open feed](https://nextstrain.org/blog/2021-07-08-ncov-open-announcement) of SARS-CoV-2 genome data and metadata, which is curated from the NCBI Genbank database by the [Nextstrain](https://nextstrain.org/) team and comprises over 3 million genomes (as of January 11, 2022);
-* additional scripts for generating a set of lineage-specific mutations, by extracting the frequencies of mutations in association with specific lineages, and comparing those results to all other lineages as background;
-* screening outputs from `minimap2.py` to estimate the frequencies of a specific lineage in a set of samples (`estimate-freqs.R`);
-* generating visualizations, *e.g.*, `make-barplots.R`
+* an R script (`estimate-freqs.R`) that uses quasibinomial regression to estimate the frequency of a variant of concern from the frequencies of mutations based on the associated [constellation file](https://github.com/cov-lineages/constellations/)
+* a second R script (`make-barplots.R`) for visualizing these variant frequency estimates across a set of samples as a barplot
+
 
 ## Dependencies
 * [cutadapt](https://github.com/marcelm/cutadapt) 1.18+
@@ -14,6 +11,105 @@ Gromstole is collection of Python and R scripts to estimate the relative frequen
 * [R](https://cran.r-project.org/)
 
 ## Usage
+
+The following summarizes a workflow based on a pair of FASTQ files associated with a [study of wastewater by the Nevada State Public Health Laboratory](https://trace.ncbi.nlm.nih.gov/Traces/sra/?study=SRP354147).  These data can be obtained from the NCBI Sequence Read Archive using the command line tool `fasterq-dump` that is distributed with the [sra-tools](https://github.com/ncbi/sra-tools) package.
+
+```console
+art@Langley:~/git/gromstole$ ~/src/sratoolkit.2.11.3-ubuntu64/bin/fasterq-dump -p SRR17724299
+join   :|-------------------------------------------------- 100%   
+concat :|-------------------------------------------------- 100%   
+spots read      : 614,374
+reads read      : 1,228,748
+reads written   : 1,228,748
+art@Langley:~/git/gromstole$ python3 scripts/minimap2.py SRR17724299_1.fastq SRR17724299_2.fastq -o testrun
+Defaulting output prefix stem to SRR17724299_1.fastq
+50000.0 reads, 46769.0 (94%) mapped
+100000.0 reads, 93735.0 (94%) mapped
+150000.0 reads, 140548.0 (94%) mapped
+200000.0 reads, 187560.0 (94%) mapped
+250000.0 reads, 234509.5 (94%) mapped
+300000.0 reads, 281501.0 (94%) mapped
+350000.0 reads, 328490.0 (94%) mapped
+400000.0 reads, 375566.0 (94%) mapped
+450000.0 reads, 422431.5 (94%) mapped
+500000.0 reads, 469568.5 (94%) mapped
+550000.0 reads, 516504.5 (94%) mapped
+600000.0 reads, 563587.5 (94%) mapped
+art@Langley:~/git/gromstole$ Rscript scripts/estimate-freqs.R testrun constellations/constellations/definitions/cB.1.617.2.json \
+testrun/SRR17724299_1.delta.json 
+Loading required package: lubridate
+
+Attaching package: ‘lubridate’
+
+The following objects are masked from ‘package:base’:
+
+    date, intersect, setdiff, union
+
+Loading required package: jsonlite
+Loading required package: seqinr
+Loading required package: here
+here() starts at /home/art/git/gromstole
+```
+
+This yields the following JSON file:
+```json
+{
+  "counts": [
+    {
+      "aa:S:T19R": 643,
+      "aa:S:G142D": 3,
+      "aa:S:L452R": 915,
+      "aa:S:T478K": 810,
+      "aa:S:P681R": 2010,
+      "aa:S:D950N": 1629,
+      "aa:orf3a:S26L": 1539,
+      "aa:M:I82T": 1915,
+      "aa:orf7a:V82A": 501,
+      "aa:orf7a:T120I": 563,
+      "aa:N:D63G": 2056,
+      "aa:N:R203M": 845,
+      "aa:N:D377Y": 646,
+      "_row": "SRR17724299_1"
+    }
+  ],
+  "coverage": [
+    {
+      "aa:S:T19R": 653,
+      "aa:S:G142D": 312,
+      "aa:S:L452R": 935,
+      "aa:S:T478K": 815,
+      "aa:S:P681R": 2025,
+      "aa:S:D950N": 2078,
+      "aa:orf3a:S26L": 1556,
+      "aa:M:I82T": 1922,
+      "aa:orf7a:V82A": 502,
+      "aa:orf7a:T120I": 567,
+      "aa:N:D63G": 2078,
+      "aa:N:R203M": 852,
+      "aa:N:D377Y": 655,
+      "_row": "SRR17724299_1"
+    }
+  ],
+  "metadata": [
+    {
+      "sample": "SRR17724299_1",
+      "lab": "gromstole"
+    }
+  ],
+  "estimate": [
+    {
+      "est": 0.941,
+      "lower.95": 0.8149,
+      "upper.95": 0.992,
+      "_row": "SRR17724299_1"
+    }
+  ],
+  "lineage": ["B.1.617.2"],
+  "run.dir": ["testrun"]
+}
+```
+
+## Description
 
 Our current modelling strategy consists of a quasibinomial GLM for the count and coverage of the mutations that define a VOC, which are parsed from constellation JSON files curated by [cov-lineages](https://github.com/cov-lineages/constellations/).
 
@@ -38,7 +134,3 @@ Given a directory containing one or more subdirectories that each contain paired
 Rscript scripts/estimate-freqs.R results/name-of-sample constellations/constellations/definitions/cBA.1.csv results/outfile.json path/to/metadata.csv
 ```
 
-To get a nice summary of the results, the following scripts produces a stacked bar plot with the specified filename.
-```sh
-Rscript scripts/make-barplots.R results/outfile_B-1-1-529.json results/barplot_B-1-1-529.pdf
-```
