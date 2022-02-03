@@ -24,6 +24,14 @@ if (is.null(metadata$site)) {
   metadata$site <- NA
 }
 
+if (is.null(estimate$lower.95)) {
+  estimate$lower.95 <- NA
+} 
+
+if (is.null(input$estimate$upper.95)) {
+  estimate$upper.95 <- NA
+} 
+
 if (all(is.na(metadata$site))) {
   names.arg <- metadata$sample
 } else {

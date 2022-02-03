@@ -3,6 +3,7 @@ from scripts.progress_utils import Callback
 import sqlite3
 import argparse
 import shutil
+import re
 import os
 import glob
 import subprocess
@@ -52,12 +53,12 @@ def insert_record(curr, filepath):
     checksum = stdout.split(' ')[0]
 
     # Insert into Database
-    curr.execute("INSERT INTO RECORDS (file, creation_date, location, checksum)"
+    curr.execute("INSERT OR REPLACE INTO RECORDS (file, creation_date, location, checksum)"
                  " VALUES(?, ?, ?, ?)",
-                 [file, formatted_date, path, checksum])
+                 [filepath, formatted_date, path, checksum])
 
 
-def get_files(curr, paths, ignore_list, callback=None):
+def get_files(curr, paths, ignore_list, check_processed, callback=None):
     """
     Detects if there are any new data files that have been uploaded by comparing the list of files to those that
     are already in the database
@@ -66,8 +67,9 @@ def get_files(curr, paths, ignore_list, callback=None):
     :param paths: list, paths to all R1 files in the uploads directory
     :param ignore_list: list, directories that the user would like to avoid processing
     :param callback: function, option to print messages to the console
-    :return: list, paths to all files that have not been inserted into the database
+    :return: list, paths to all files that have not been inserted into the database and the filepaths to all runs
     """
+    runs = set()
     curr.execute("SELECT file, checksum FROM RECORDS;")
     results = {x[0]: x[1] for x in curr.fetchall()}
 
@@ -79,33 +81,35 @@ def get_files(curr, paths, ignore_list, callback=None):
             ignore.append(file)
             continue
         path, filename = os.path.split(file)
-        if filename not in results:
+        if file not in results:
             unentered.append(file)
+            runs.add(path)
         else:
             entered.append(file)
 
-    # Check if R1 or R2 files have changed since the last run
-    r2_files = [file.replace('_R1_', '_R2_') for file in entered]
-    stdout = (subprocess.getoutput("sha1sum {} {}".format(' '.join(entered), ' '.join(r2_files)))).split()
-    checksums = {stdout[i]: stdout[i - 1] for i in range(1, len(stdout), 2)}
+    if check_processed:
+        # Check if R1 or R2 files have changed since the last run
+        if len(entered) > 0:
+            r2_files = [file.replace('_R1_', '_R2_') for file in entered]
+            stdout = (subprocess.getoutput("sha1sum {} {}".format(' '.join(entered), ' '.join(r2_files)))).split()
+            checksums = {stdout[i]: stdout[i - 1] for i in range(1, len(stdout), 2)}
 
-    for file in entered:
-        _, filename = os.path.split(file)
-        r2 = file.replace('_R1_', '_R2_')
-        _, r2_filename = os.path.split(r2)
+        for file in entered:
+            path, filename = os.path.split(file)
+            r2 = file.replace('_R1_', '_R2_')
+            _, r2_filename = os.path.split(r2)
 
-        if results[filename] != checksums[file] or results[r2_filename] != checksums[r2]:
-            unentered.append(file)
-
-            # Delete entry from the table to avoid duplicates
-            curr.execute("DELETE from RECORDS WHERE file=? OR file=? ;", [filename, r2_filename])
+            if results[filename] != checksums[file] or results[r2_filename] != checksums[r2]:
+                unentered.append(file)
+                runs.add(path)
+                cb.callback("Re-processing {} and its R2 pair from the database".format(file))
 
     if len(ignore) > 0 and callback:
         callback("Ignoring {} files".format(len(ignore)))
         for f in ignore:
             callback("\t {}".format(f), level="DEBUG")
 
-    return unentered
+    return unentered, runs
 
 
 def ignore_file(file, ignore):
@@ -191,7 +195,8 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
             continue
 
         result_dir = outdir + path.split(indir)[1]
-        os.makedirs("results/{}".format(prefix), exist_ok=True)
+        run = os.path.basename(result_dir)
+        os.makedirs("results/{}".format(run), exist_ok=True)
         os.makedirs(result_dir, exist_ok=True)
 
         # Verifies that all the output files exist before moving them to the results directory
@@ -201,9 +206,9 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
             continue
 
         # Remove any files from a prior run in the results directory
-        outfiles = glob.glob("{}/**/{}.*".format(result_dir, prefix), recursive=True)
-        for outfile in outfiles:
-            os.remove(outfile)
+        # outfiles = glob.glob("{}/**/{}.*".format(result_dir, prefix), recursive=True)
+        # for outfile in outfiles:
+        #    os.remove(outfile)
 
         # Rename files with checksum and copy files to the results directory
         for suffix in suffixes:
@@ -213,7 +218,7 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
             new_filepath = "results/{}.{}.{}".format(prefix, checksum, suffix)
             os.rename(filepath, new_filepath)
             shutil.copy(new_filepath, result_dir)
-            shutil.move(new_filepath, "results/{}/{}.{}.{}".format(prefix, prefix, checksum, suffix))
+            shutil.move(new_filepath, "results/{}/{}.{}.{}".format(run, prefix, checksum, suffix))
 
         # Insert file data to the database
         insert_record(curr, r1)
@@ -223,6 +228,80 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
         callback("Ignoring {} files without an R2 pair".format(len(ignore)))
         for f in ignore:
             callback("\t {}".format(f), level="DEBUG")
+
+
+def run_scripts(runs, indir, outdir, callback=None):
+    """
+    Run estimate-freqs.R, make-barplots.R and make-csv.R for each run
+
+    :param runs: list, location of the run files for the estimate-freqs.R script
+    :param indir: str, location of the uploads folder
+    :param outdir: str, location of the results folder
+    :param callback: function, option to print messages to the console
+    :return: None
+    """
+
+    lineages = ['BA.1', 'BA.2', 'B.1.617.2']
+    suffixes = ['json', 'barplot.pdf', 'csv']
+    for run in runs:
+        result_dir = outdir + run.split(indir)[1]
+        for lineage in lineages:
+            constellation = 'constellations/constellations/definitions/c{}.json'.format(lineage)
+            if not os.path.exists(constellation):
+                # Initialize submodule if the constellation file cannot be located
+                try:
+                    subprocess.check_call("git submodule init; git submodule update", shell=True)
+                except:
+                    callback("Error adding the required submodules")
+                    sys.exit()
+
+            filename = "{}-{}-{}".format(os.path.basename(os.path.dirname(result_dir)),
+                                              os.path.basename(result_dir), lineage.replace('.',''))
+            cmd = ['Rscript', 'scripts/estimate-freqs.R', result_dir, constellation, '{}.json'.format(filename)]
+
+            # Get metadata filename, not all files are named "metadata.csv"
+            metadata = 'metadata*'
+            for file in os.listdir(run):
+                if re.search(metadata, file):
+                    cmd.append(os.path.join(run, file))
+                    break
+
+            callback("Running '{}'".format(' '.join(cmd)))
+            try:
+                subprocess.check_call(cmd)
+            except subprocess.CalledProcessError:
+                if callback:
+                    callback("Error running estimate-freqs.R: {}, {}".format(constellation, run),
+                             level="ERROR")
+                continue
+
+            cmd = ['Rscript', 'scripts/make-barplots.R', '{}.json'.format(filename), '{}.barplot.pdf'.format(filename)]
+            callback("Running '{}'".format(' '.join(cmd)))
+            try:
+                subprocess.check_call(cmd)
+            except subprocess.CalledProcessError:
+                if callback:
+                    callback("Error running make-barplots.R: {}, {}".format(constellation, run),
+                             level="ERROR")
+                continue
+
+            cmd = ['Rscript', 'scripts/make-csv.R', '{}.json'.format(filename), '{}.csv'.format(filename)]
+            callback("Running '{}'".format(' '.join(cmd)))
+            try:
+                subprocess.check_call(cmd)
+            except subprocess.CalledProcessError:
+                if callback:
+                    callback("Error running make-csv.R: {}, {}".format(constellation, run),
+                             level="ERROR")
+                continue
+
+            for suffix in suffixes:
+                stdout = subprocess.getoutput("sha1sum {}.{}".format(filename, suffix))
+                checksum = stdout.split(' ')[0][:10]
+                new_filename = "{}.{}.{}".format(filename, checksum, suffix)
+                os.rename('{}.{}'.format(filename, suffix), new_filename)
+                shutil.copy(new_filename, result_dir)
+                shutil.move(new_filename, "results/{}/{}".format(os.path.basename(result_dir), new_filename))
 
 
 def parse_args():
@@ -242,6 +321,11 @@ def parse_args():
                         help="<option> path to minimap2 executable")
     parser.add_argument('-c', '--cutabin', type=str, default='cutadapt',
                         help="<option> path to cutadapt executable")
+    parser.add_argument('--check', dest='check', default='store_true',
+                        help="Check processed files to see if the files have changed since last processing them")
+    parser.add_argument('--no-check', dest='check', action='store_false',
+                        help="Do not check processed files to see if the files have changed since last processing them")
+    parser.set_defaults(check=False)
 
     return parser.parse_args()
 
@@ -249,15 +333,20 @@ def parse_args():
 if __name__ == '__main__':
     cb = Callback()
     args = parse_args()
+    cb.callback("Starting script")
 
     cursor, connection = open_connection(args.db, callback=cb.callback)
 
     files = glob.glob("{}/**/*_R1_*.fastq.gz".format(args.indir), recursive=True)
-    new_files = get_files(cursor, files, args.ignore_list, callback=cb.callback)
+    new_files, runs = get_files(cursor, files, args.ignore_list, args.check, callback=cb.callback)
     process_files(cursor, args.indir, args.outdir, new_files, binpath=args.binpath, cutabin=args.cutabin,
                   callback=cb.callback)
+    run_scripts(runs, args.indir, args.outdir, callback=cb.callback)
 
-    cb.callback("All Done!")
+    if len(new_files) == 0:
+        cb.callback("No new data files")
+    else:
+        cb.callback("All Done!")
     
     connection.commit()
     connection.close()
