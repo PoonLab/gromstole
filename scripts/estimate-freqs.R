@@ -304,7 +304,7 @@ for (i in 1:nrow(counts)) {
     )
   
   if (sum(is.na(y)) < length(y)-1 & !is.na(probs[i]) & probs[i] >= 1e-5) { # p<1e-5 means confidence intervals fail
-    suppressMessages(ci <- tryCatch(confint(fit)))
+    suppressMessages(ci <- tryCatch(confint.default(fit)))
     lo[i] <- exp(ci[1]) / (1+exp(ci[1]))
     hi[i] <- exp(ci[2]) / (1+exp(ci[2]))
   }
