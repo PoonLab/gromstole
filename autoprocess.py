@@ -295,6 +295,11 @@ def run_scripts(runs, indir, outdir, callback=None):
                              level="ERROR")
                 continue
 
+            # Remove prior output files
+            resfiles = glob.glob("{}/**/{}.*".format(result_dir, filename), recursive=True)
+            for resfile in resfiles:
+                os.remove(resfile)
+
             for suffix in suffixes:
                 stdout = subprocess.getoutput("sha1sum {}.{}".format(filename, suffix))
                 checksum = stdout.split(' ')[0][:10]
