@@ -293,18 +293,18 @@ hi <- rep(NA, nrow(counts))
 for (i in 1:nrow(counts)) {
   y <- as.integer(counts[i, 1:ncol(cvr)])  # number of "successes"
   n <- as.integer(cvr[i, ])  # number of trials
-  # Avoid bars that will have huge error bars
-  #if(sum(y, na.rm = TRUE) < 3) {
-  #  next
-  #}
+  if(sum(!is.na(y)) < 3) {
+    next  # should not try to fit a model to two data points
+  }
   probs[i] <- tryCatch({
     fit <- glm(cbind(y, n-y) ~ 1, family='quasibinomial')
     exp(fit$coef) / (1+exp(fit$coef))  # probability
     }, 
     error = function(cond) { return (NA) }
     )
-  
-  if (sum(is.na(y)) < length(y)-1 & !is.na(probs[i]) & probs[i] >= 1e-5) { # p<1e-5 means confidence intervals fail
+  if (sum(is.na(y)) < length(y)-1 & 
+      !is.na(probs[i]) & 
+      (probs[i] >= 1e-5 & probs[i] <= 1-(1e-5)) ) {
     suppressMessages(ci <- tryCatch(confint(fit)))
     lo[i] <- exp(ci[1]) / (1+exp(ci[1]))
     hi[i] <- exp(ci[2]) / (1+exp(ci[2]))
