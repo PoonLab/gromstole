@@ -57,7 +57,15 @@ orfs <- list(
   'orf7b'= c(27755, 27887),
   'orf8'= c(27893, 28259),
   'N'= c(28273, 29533),
-  'orf10'= c(29557, 29674)
+  'orf10'= c(29557, 29674),
+  'nsp2' = c(806, 2719),
+  'nsp3' = c(2720, 8554),
+  'nsp4' = c(8555, 10054),
+  'nsp5' = c(10055, 10972),
+  'nsp6' = c(10973, 11842),
+  'nsp12' = c(13442, 16236),
+  'nsp13' = c(16237, 18039),
+  'nsp15' = c(19621, 20658)
 )
 
 
@@ -89,6 +97,8 @@ sites <- lapply(unique(constellation$sites), function(d) {
   } else if (toks[1] == "NUC") {
     toks <- toks[-1]
     toks[[1]] <- substring(toks[1], 2, nchar(toks[1]))
+  } else if (toks[2] == "8") {
+    toks[[2]] <- "orf8"
   } else if (toks[2] == "ORF1AB" || toks[2] == "1AB") {
     num <- as.numeric(re.findall("\\d+", toks[3]))
     if (num <= len_1a) {
@@ -100,6 +110,8 @@ sites <- lapply(unique(constellation$sites), function(d) {
       toks[[2]] <- "orf1b"
     }
   } else if (nchar(toks[2]) >= 3 && substring(toks[2], 1, 3) == "ORF") {
+    toks[[2]] <- tolower(toks[2])
+  } else if (substring(toks[2], 1, 3) == "NSP") {
     toks[[2]] <- tolower(toks[2])
   }
   
