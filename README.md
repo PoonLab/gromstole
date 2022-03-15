@@ -14,6 +14,18 @@ Gromstole is collection of Python and R scripts to estimate the relative frequen
 
 The following summarizes a workflow based on a pair of FASTQ files associated with a [study of wastewater by the Nevada State Public Health Laboratory](https://trace.ncbi.nlm.nih.gov/Traces/sra/?study=SRP354147).  These data can be obtained from the NCBI Sequence Read Archive using the command line tool `fasterq-dump` that is distributed with the [sra-tools](https://github.com/ncbi/sra-tools) package.
 
+The `consellations` submodule needs to be initialized prior to running the scripts for the first time. 
+
+```console
+git submodule init; git submodule update
+```
+
+Prior to running the scripts, the submodule should be updated to use the latest constellation JSON files.
+
+```console
+git submodule foreach git pull origin main
+```
+
 ```console
 art@Langley:~/git/gromstole$ ~/src/sratoolkit.2.11.3-ubuntu64/bin/fasterq-dump -p SRR17724299
 join   :|-------------------------------------------------- 100%   
