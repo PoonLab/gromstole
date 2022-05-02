@@ -112,7 +112,20 @@ sites <- lapply(unique(constellation$sites), function(d) {
   } else if (nchar(toks[2]) >= 3 && substring(toks[2], 1, 3) == "ORF") {
     toks[[2]] <- tolower(toks[2])
   } else if (substring(toks[2], 1, 3) == "NSP") {
-    toks[[2]] <- tolower(toks[2])
+    start_pos <- orfs[[tolower(toks[2])]][1]
+    codon <- as.integer(re.findall("\\d+", toks[3]))
+    nuc_pos <- start_pos + (codon-1)*3
+    if (nuc_pos >= orfs[['orf1a']][1] && nuc_pos <= orfs[['orf1a']][2]) {
+      toks[[2]] <- 'orf1a'
+    }
+    else if (nuc_pos >= orfs[['orf1b']][1] && nuc_pos <= orfs[['orf1b']][2]) {
+      toks[[2]] <- 'orf1b'
+    }
+    else {
+      stop("Could not convert nsp to orf1a/b")
+    }
+    new_pos <- ((nuc_pos - orfs[[toks[2]]][1])/3) + 1
+    toks[[3]] <- gsub(codon, floor(new_pos), toks[[3]])
   }
   
   if (grepl("+", toks[1], fixed = TRUE)) {

@@ -340,6 +340,12 @@ if __name__ == '__main__':
     args = parse_args()
     cb.callback("Starting script")
 
+    # update submodules
+    try:
+        subprocess.check_call("git submodule foreach git pull origin main", shell=True)
+    except:
+        cb.callback("Could not update submodules", level='ERROR')
+
     cursor, connection = open_connection(args.db, callback=cb.callback)
 
     files = glob.glob("{}/**/*_R1_*.fastq.gz".format(args.indir), recursive=True)
