@@ -23,8 +23,6 @@ if (length(args) > 2) {
 }
 
 lineages <- c('BA.1', 'BA.2', 'B.1.617.2')
-stelfiles <- paste0("constellations/constellations/definitions/c",
-  lineages, ".json")
 
 
 #' re.findall
@@ -78,74 +76,11 @@ require(lubridate)
 require(jsonlite)
 require(seqinr)
 
-refseq <- read.fasta("data/NC_045512.fa")[[1]]
-
-sites_list <- list()
-for(i in seq_along(stelfiles)){
-  # load the lineage definition (mutation list)
-  stelfile <- stelfiles[i]
-  lineage <- gsub("^c|\\.json$", "", basename(stelfile))
-  constellation <- jsonlite::read_json(stelfile, simplifyVector = TRUE)
-  constellation$sites <- unique(constellation$sites)
-
-  # Calculate the length of orf1a to determine if a mutation is in orf1a or orf1b
-  len_1a <- (orfs[['orf1a']][2]-orfs[['orf1a']][1])/3 + 1
-
-  # convert constellation to label notation in the mapped files
-  sites <- lapply(unique(constellation$sites), function(d) {
-    toks <- toupper(strsplit(d, ":")[[1]])
-
-    if (toks[1] != "DEL" && toks[1] != "NUC")
-      toks <- c("aa", toks)
-    
-    if (toks[2] == "S" || toks[2] == "SPIKE") {
-      toks[[2]] <- "S"
-    } else if (toks[1] == "DEL") {
-      toks[[1]] <- "del"
-    } else if (toks[1] == "NUC") {
-      toks <- toks[-1]
-      toks[[1]] <- substring(toks[1], 2, nchar(toks[1]))
-    } else if (toks[2] == "8") {
-      toks[[2]] <- "orf8"
-    } else if (toks[2] == "ORF1AB" || toks[2] == "1AB") {
-      num <- as.numeric(re.findall("\\d+", toks[3]))
-      if (num <= len_1a) {
-        toks[[2]] <- "orf1a"
-      } else {
-        # Determine nucleotide position relative to the start of orf1b
-        new_pos <- (((num-1) * 3 + orfs[['orf1a']][1]) - orfs[['orf1b']][1])/3
-        toks[[3]] <- gsub(num, floor(new_pos) + 1, toks[[3]])
-        toks[[2]] <- "orf1b"
-      }
-    } else if (nchar(toks[2]) >= 3 && substring(toks[2], 1, 3) == "ORF") {
-      toks[[2]] <- tolower(toks[2])
-    } else if (substring(toks[2], 1, 3) == "NSP") {
-      start_pos <- orfs[[tolower(toks[2])]][1]
-      codon <- as.integer(re.findall("\\d+", toks[3]))
-      nuc_pos <- start_pos + (codon-1)*3
-      if (nuc_pos >= orfs[['orf1a']][1] && nuc_pos <= orfs[['orf1a']][2]) {
-        toks[[2]] <- 'orf1a'
-      }
-      else if (nuc_pos >= orfs[['orf1b']][1] && nuc_pos <= orfs[['orf1b']][2]) {
-        toks[[2]] <- 'orf1b'
-      }
-      else {
-        stop("Could not convert nsp to orf1a/b")
-      }
-      new_pos <- ((nuc_pos - orfs[[toks[2]]][1])/3) + 1
-      toks[[3]] <- gsub(codon, floor(new_pos), toks[[3]])
-    }
-    
-    if (grepl("+", toks[1], fixed = TRUE)) {
-      ins <- strsplit(toks[[1]], split = "[+]")[[1]]
-      toks[[1]] <- gsub(" ", "", paste("+", ins[1], ".", ins[2]))
-    }
-    toks <- paste(toks, collapse = ":")
-  })
-
-  sites_list[[i]] <- unlist(sites, recursive = FALSE)
-}
-sites <- unlist(sites_list)
+source("scripts/astronomize.R")
+varmat <- astronomize(path = "constellations")
+varmat <- varmat[row.names(varmat) %in% lineages,]
+varmat <- varmat[, colSums(varmat) > 0]
+sites <- colnames(varmat)
 
 # locate data files
 require(here)

@@ -96,20 +96,18 @@ The confidence interval of the proportion parameter is compared to an assumed se
 \begin{tikzpicture}[node distance=1cm]
 % Process Samples
 \node (waste) [startstop, text width=1.75cm] {Wastewater Samples};
-\node (wlist) [process, text width=1.75cm, right of=waste, xshift=1.5cm] {List of Mutations};
-\draw [arrow] (waste) -- (wlist);
-\node (wmut) [process, right of=wlist, xshift=1.7cm, yshift=0.6cm, text width=2cm] {Mutation Counts};
-\draw [arrow] (wlist) -- (wmut);
+\node (wmut) [process, right of=waste, xshift=1.7cm, yshift=0.6cm, text width=2cm] {Mutation Counts};
+\draw [arrow] (waste) -- (wmut);
 \node (wcov) [process, below of=wmut, yshift=-0.2cm, text width=2cm] {Coverage at All Positions};
-\draw [arrow] (wlist) -- (wcov);
+\draw [arrow] (waste) -- (wcov);
 
 % Gather Unique mutations (in a grey rectangle)
 \node (nextstrain) [startstop, text width=1.75cm, below of=waste, yshift=-1.66cm] {NextStrain Sequences};
-\node (nsmut) [process, right of=nextstrain, xshift=1.5cm, text width=1.8cm, yshift=0.6cm] {Mutations in Variant of Interest};
-\node (nsomi) [process, below of=nsmut, text width=1.8cm, yshift=-0.4cm] {Mutations in Other Variants};
+\node (nsmut) [process, right of=nextstrain, xshift=1.7cm, text width=2cm, yshift=0.6cm] {Mutations in Variant of Interest};
+\node (nsomi) [process, below of=nsmut, text width=2cm, yshift=-0.4cm] {Mutations in Other Variants};
 \draw [arrow] (nextstrain) -- (nsmut);
 \draw [thick, dashed,->,>=stealth] (nextstrain) -- (nsomi);
-\draw [color=lightgray, thick, dashed](-1.15, -4.25) rectangle (3.65,-1.25);
+\draw [color=lightgray, thick, dashed](-1.15, -4.25) rectangle (3.97,-1.25);
 \node at (-1.2, -4.25) [below=2.3mm, right=-2mm] {\textcolor{gray}{Optional if Mutation List Known}};
 % Outside rectangle
 \node (uniques) [process, right of=nsmut, yshift=-0.5cm, xshift=1.7cm, text width=2cm] {``Unique'' Mutations for Variant};
@@ -118,7 +116,7 @@ The confidence interval of the proportion parameter is compared to an assumed se
 
 % Used \hyphencahr\font=-1 to prevent words from hyphenating and wrapping to next line
 % Used \quad to control which words wrap to next line
-\node (detect) [process, right of=uniques, yshift=2.75cm, xshift=2.7cm, text width=3.9cm] {\hyphenchar\font=-1 Count and Coverage of the ``Unique'' Mutations for Variant \quad\quad\quad\textcolor{gray}{(including mutations not observed in samples)}};
+\node (detect) [process, right of=wmut, yshift=-0.6cm, xshift=2.9cm, text width=3.9cm] {\hyphenchar\font=-1 Count and Coverage of the ``Unique'' Mutations for Variant \quad\quad\quad\textcolor{gray}{(including mutations not observed in samples)}};
 \draw [arrow] (uniques) -- (detect);
 \draw [arrow] (wmut) -- (detect);
 \draw [arrow] (wcov) -- (detect);
