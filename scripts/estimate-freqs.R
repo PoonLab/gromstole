@@ -334,6 +334,19 @@ for (i in 1:nrow(counts)) {
     lo[i] <- exp(ci[1]) / (1+exp(ci[1]))
     hi[i] <- exp(ci[2]) / (1+exp(ci[2]))
   }
+  
+  # handle edge case where coef > 100
+  if (is.nan(probs[i])) {
+    boots <- sapply(1:1000, function(i) {
+      idx <- sample(1:length(y), length(y), replace=T)
+      fit1 <- glm(cbind(y[idx], n[idx]-y[idx]) ~ 1, family='quasibinomial')
+      bp <- fit1$coefficients[1]
+      ifelse(bp > 100, 1, exp(bp)/(1+exp(bp)))
+    })
+    probs[i] <- mean(boots, na.rm=T)
+    lo[i] <- quantile(boots, 0.025)
+    hi[i] <- quantile(boots, 0.975)
+  }
 }
 estimate <- data.frame(est=probs, lower.95=lo, upper.95=hi)
 row.names(estimate) <- row.names(counts)
