@@ -96,7 +96,7 @@ sites <- lapply(unique(constellation$sites), function(d) {
     toks[[1]] <- "del"
   } else if (toks[1] == "NUC") {
     toks <- toks[-1]
-    toks[[1]] <- substring(toks[1], 2, nchar(toks[1]))
+    toks[[1]] <- substring(toks[1], 1, nchar(toks[1]))
   } else if (toks[2] == "8") {
     toks[[2]] <- "orf8"
   } else if (toks[2] == "ORF1AB" || toks[2] == "1AB") {
