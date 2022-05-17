@@ -52,58 +52,58 @@ draw.sc2()
 
 invisible(dev.off())
 
-map <- read.csv(mapfile)
+# map <- read.csv(mapfile)
 
-# B.1.617.2 mutations
-delta <- c('aa:orf1b:P314L', 'aa:S:T19R', 'del:22029:6', 'aa:S:L452R', 
-           'aa:S:T478K', 'aa:S:D614G', 'aa:S:P681R', 'aa:S:D950N', 
-           'aa:orf3a:S26L', 'aa:M:I82T', 'aa:orf7a:V82A', 'aa:orf7a:T120I', 
-           'del:28271:1', 'aa:N:D63G', 'aa:N:R203M', 'aa:N:D377Y', 
-           'aa:orf1a:A1306S', 'aa:orf1a:P2046L', 'aa:orf1a:P2287S', 
-           'aa:orf1a:V2930L', 'aa:orf1a:T3255I', 'aa:orf1a:T3646A', 
-           'aa:orf1b:G662S', 'aa:orf1b:P1000L', 'aa:orf1b:A1918V', 
-           'aa:orf7b:T40I', 'del:28248:6', 'aa:N:G215C')
+# # B.1.617.2 mutations
+# delta <- c('aa:orf1b:P314L', 'aa:S:T19R', 'del:22029:6', 'aa:S:L452R', 
+#            'aa:S:T478K', 'aa:S:D614G', 'aa:S:P681R', 'aa:S:D950N', 
+#            'aa:orf3a:S26L', 'aa:M:I82T', 'aa:orf7a:V82A', 'aa:orf7a:T120I', 
+#            'del:28271:1', 'aa:N:D63G', 'aa:N:R203M', 'aa:N:D377Y', 
+#            'aa:orf1a:A1306S', 'aa:orf1a:P2046L', 'aa:orf1a:P2287S', 
+#            'aa:orf1a:V2930L', 'aa:orf1a:T3255I', 'aa:orf1a:T3646A', 
+#            'aa:orf1b:G662S', 'aa:orf1b:P1000L', 'aa:orf1b:A1918V', 
+#            'aa:orf7b:T40I', 'del:28248:6', 'aa:N:G215C')
 
-alpha <- c('aa:orf1a:T1001I', 'aa:orf1a:A1708D', 'aa:orf1a:I2230T', 
-           'del:11288:9', 'aa:orf1b:P314L', 'del:21765:6', 'del:21991:3', 
-           'aa:S:N501Y', 'aa:S:A570D', 'aa:S:D614G', 'aa:S:P681H', 
-           'aa:S:T716I', 'aa:S:S982A', 'aa:S:D1118H', 'aa:orf8:Q27*', 
-           'aa:orf8:R52I', 'aa:orf8:Y73C', 'aa:N:D3H', 'aa:N:D3V', 'aa:N:D3E', 
-           'aa:N:R203K', 'aa:N:G204R', 'aa:N:S235F', 'del:28271:1')
+# alpha <- c('aa:orf1a:T1001I', 'aa:orf1a:A1708D', 'aa:orf1a:I2230T', 
+#            'del:11288:9', 'aa:orf1b:P314L', 'del:21765:6', 'del:21991:3', 
+#            'aa:S:N501Y', 'aa:S:A570D', 'aa:S:D614G', 'aa:S:P681H', 
+#            'aa:S:T716I', 'aa:S:S982A', 'aa:S:D1118H', 'aa:orf8:Q27*', 
+#            'aa:orf8:R52I', 'aa:orf8:Y73C', 'aa:N:D3H', 'aa:N:D3V', 'aa:N:D3E', 
+#            'aa:N:R203K', 'aa:N:G204R', 'aa:N:S235F', 'del:28271:1')
 
-pal <- rev(hcl.colors(n=8))
-# assume a maximum of 500,000
-pal.idx <- exp(seq(0, log(5e5), length.out=8))
-pal.idx[1] <- 0
+# pal <- rev(hcl.colors(n=8))
+# # assume a maximum of 500,000
+# pal.idx <- exp(seq(0, log(5e5), length.out=8))
+# pal.idx[1] <- 0
 
-mapfilename <- file.path(args[1], str_c(args[2], '.delta.png'))
+# mapfilename <- file.path(args[1], str_c(args[2], '.delta.png'))
 
-res <- 300
-png(filename=mapfilename, width=12*res, height=8*res, res=res)
-par(mar=c(7,7,7,7))
+# res <- 300
+# png(filename=mapfilename, width=12*res, height=8*res, res=res)
+# par(mar=c(7,7,7,7))
 
-df <- map
-temp <- df[df$coverage > 100, ]
-temp <- temp[temp$label != '~9053C', ]  # hack
-idx <- unlist(sapply(delta, function(m) {
-  if(is.element(m, temp$mutation)) {
-    which(temp$mutation == m)
-  } else {
-    NA
-  }
-}))
-freq <- temp$frequency[idx]
-names(freq) <- names(idx)
-count <- temp$coverage[idx]
-count[is.na(count)] <- 0
+# df <- map
+# temp <- df[df$coverage > 100, ]
+# temp <- temp[temp$label != '~9053C', ]  # hack
+# idx <- unlist(sapply(delta, function(m) {
+#   if(is.element(m, temp$mutation)) {
+#     which(temp$mutation == m)
+#   } else {
+#     NA
+#   }
+# }))
+# freq <- temp$frequency[idx]
+# names(freq) <- names(idx)
+# count <- temp$coverage[idx]
+# count[is.na(count)] <- 0
 
-barplot(freq, horiz=T, las=1, xlim=c(0,1), cex.names=0.75,
-        col=pal[as.integer(cut(count, breaks=pal.idx))],
-        xlab='Estimated frequency')
-text(x=ifelse(is.na(freq), 0, freq)+0.01, 
-     y=(1:length(freq)-0.5)*1.2, 
-     label=count, xpd=NA, adj=0, cex=0.8)
-title(main=args[2], adj=0)
+# barplot(freq, horiz=T, las=1, xlim=c(0,1), cex.names=0.75,
+#         col=pal[as.integer(cut(count, breaks=pal.idx))],
+#         xlab='Estimated frequency')
+# text(x=ifelse(is.na(freq), 0, freq)+0.01, 
+#      y=(1:length(freq)-0.5)*1.2, 
+#      label=count, xpd=NA, adj=0, cex=0.8)
+# title(main=args[2], adj=0)
 
-invisible(dev.off())
+# invisible(dev.off())
 
