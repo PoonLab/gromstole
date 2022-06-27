@@ -96,7 +96,7 @@ sites <- lapply(unique(constellation$sites), function(d) {
     toks[[1]] <- "del"
   } else if (toks[1] == "NUC") {
     toks <- toks[-1]
-    toks[[1]] <- substring(toks[1], 2, nchar(toks[1]))
+    toks[[1]] <- substring(toks[1], 1, nchar(toks[1]))
   } else if (toks[2] == "8") {
     toks[[2]] <- "orf8"
   } else if (toks[2] == "ORF1AB" || toks[2] == "1AB") {
@@ -333,6 +333,19 @@ for (i in 1:nrow(counts)) {
     suppressMessages(ci <- tryCatch(confint(fit)))
     lo[i] <- exp(ci[1]) / (1+exp(ci[1]))
     hi[i] <- exp(ci[2]) / (1+exp(ci[2]))
+  }
+  
+  # handle edge case where coef > 100
+  if (is.nan(probs[i])) {
+    boots <- sapply(1:1000, function(i) {
+      idx <- sample(1:length(y), length(y), replace=T)
+      fit1 <- glm(cbind(y[idx], n[idx]-y[idx]) ~ 1, family='quasibinomial')
+      bp <- fit1$coefficients[1]
+      ifelse(bp > 100, 1, exp(bp)/(1+exp(bp)))
+    })
+    probs[i] <- mean(boots, na.rm=T)
+    lo[i] <- quantile(boots, 0.025)
+    hi[i] <- quantile(boots, 0.975)
   }
 }
 estimate <- data.frame(est=probs, lower.95=lo, upper.95=hi)

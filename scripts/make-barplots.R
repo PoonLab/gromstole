@@ -56,7 +56,8 @@ mp <- barplot(as.numeric(estimate$est), horiz=T, main=NA, cex.main=1.3,
 title(main=paste(" ", lineage), font.main=1, cex.main=1.6, 
       adj=0, outer=TRUE, line=-1.5)
 segments(x0=estimate$lower.95, x1=estimate$upper.95, y0=mp, 
-         lwd=2, col=ifelse(estimate$lower.95 > 0.01, "black", "grey60"))
+         lwd=2, col=ifelse(estimate$upper.95 - estimate$lower.95 >= 0.9, "red", 
+                           ifelse(estimate$lower.95 > 0.01, "black", "grey60")))
 abline(v=0.01, lty=2)
 
 u <- par('usr')  # user coordinates of plot region (x1, x2, y1, y2)

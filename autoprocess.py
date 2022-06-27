@@ -153,7 +153,7 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
     :param callback: function, option to print messages to the console
     :return: None
     """
-    suffixes = ["coverage.csv", "mapped.csv", "coverage.png", "delta.png"]
+    suffixes = ["coverage.csv", "mapped.csv", "coverage.png"]
     ignore = []
     for r1 in paths:
         r2 = r1.replace('_R1_', '_R2_')
