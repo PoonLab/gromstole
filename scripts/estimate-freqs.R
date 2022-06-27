@@ -318,8 +318,8 @@ hi <- rep(NA, nrow(counts))
 for (i in 1:nrow(counts)) {
   y <- as.integer(counts[i, 1:ncol(cvr)])  # number of "successes"
   n <- as.integer(cvr[i, ])  # number of trials
-  if(sum(!is.na(y)) < 3) {
-    next  # should not try to fit a model to two data points
+  if(sum(!is.na(y)) == 0) {
+    next  # should not try to fit a model to at least one data point
   }
   probs[i] <- tryCatch({
     fit <- glm(cbind(y, n-y) ~ 1, family='quasibinomial')
