@@ -270,10 +270,16 @@ def run_scripts(runs, indir, outdir, callback=None):
             try:
                 subprocess.check_call(cmd)
             except subprocess.CalledProcessError:
+                cmd.pop()
                 if callback:
-                    callback("Error running estimate-freqs.R: {}, {}".format(constellation, run),
-                             level="ERROR")
-                continue
+                    callback("Potentially an issue with the metadata file...Running again without the metadata file")
+                try:
+                    subprocess.check_call(cmd)
+                except:
+                    if callback:
+                        callback("Error running estimate-freqs.R: {}, {}".format(constellation, run),
+                                level="ERROR")
+                    continue
 
             cmd = ['Rscript', 'scripts/make-barplots.R', '{}.json'.format(filename), '{}.barplot.pdf'.format(filename)]
             callback("Running '{}'".format(' '.join(cmd)))
