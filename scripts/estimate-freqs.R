@@ -77,6 +77,11 @@ refseq <- read.fasta("data/NC_045512.fa")[[1]]
 
 # load the lineage definition (mutation list)
 lineage <- gsub("^c|\\.json$", "", basename(stelfile))
+
+if (lineage[1] == "BA.2") {
+  lineage[1] <- "BA.2/BA.4/BA.5"
+}
+
 constellation <- jsonlite::read_json(stelfile, simplifyVector = TRUE)
 constellation$sites <- unique(constellation$sites)
 
