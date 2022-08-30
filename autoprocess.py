@@ -8,6 +8,12 @@ import os
 import glob
 import subprocess
 
+import smtplib
+from dotenv import dotenv_values
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+error_msgs = []
 
 def open_connection(database, callback=None):
     """
@@ -181,6 +187,7 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
         except subprocess.CalledProcessError:
             if callback:
                 callback("Error running minimap2.py for {} and {}".format(r1, r2), level="ERROR")
+                error_msgs.append("Error running minimap2.py for {} and {}".format(r1, r2))
             continue
 
         # Generate plots
@@ -192,6 +199,7 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
             if callback:
                 callback("Error generating plot for {}.mapped.csv and {}.coverage.csv".format(prefix, prefix),
                          level="ERROR")
+                error_msgs.append("Error generating plot for {}.mapped.csv and {}.coverage.csv".format(prefix, prefix))
             continue
 
         result_dir = outdir + path.split(indir)[1]
@@ -203,6 +211,7 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
         if missing_file(prefix, suffixes):
             if callback:
                 callback("Output file missing for {}".format(prefix), level="ERROR")
+                error_msgs.append("Output file missing for {}".format(prefix))
             continue
 
         # Remove any files from a prior run in the results directory
@@ -241,7 +250,7 @@ def run_scripts(runs, indir, outdir, callback=None):
     :return: None
     """
 
-    lineages = ['BA.1', 'BA.2', 'B.1.617.2', 'BA.4', 'BA.5']
+    lineages = ['BA.1', 'BA.2', 'B.1.617.2', 'BA.4', 'BA.5', 'BA.2.75', 'BE.1']
     suffixes = ['json', 'barplot.pdf', 'csv']
     for run in runs:
         result_dir = outdir + run.split(indir)[1]
@@ -279,6 +288,7 @@ def run_scripts(runs, indir, outdir, callback=None):
                     if callback:
                         callback("Error running estimate-freqs.R: {}, {}".format(constellation, run),
                                 level="ERROR")
+                        error_msgs.append("Error running estimate-freqs.R: {}, {}".format(constellation, run))
                     continue
 
             cmd = ['Rscript', 'scripts/make-barplots.R', '{}.json'.format(filename), '{}.barplot.pdf'.format(filename)]
@@ -289,6 +299,7 @@ def run_scripts(runs, indir, outdir, callback=None):
                 if callback:
                     callback("Error running make-barplots.R: {}, {}".format(constellation, run),
                              level="ERROR")
+                    error_msgs.append("Error running make-barplots.R: {}, {}".format(constellation, run))
                 continue
 
             cmd = ['Rscript', 'scripts/make-csv.R', '{}.json'.format(filename), '{}.csv'.format(filename)]
@@ -299,6 +310,7 @@ def run_scripts(runs, indir, outdir, callback=None):
                 if callback:
                     callback("Error running make-csv.R: {}, {}".format(constellation, run),
                              level="ERROR")
+                    error_msgs.append("Error running make-csv.R: {}, {}".format(constellation, run))
                 continue
 
             # Remove prior output files
@@ -332,6 +344,8 @@ def parse_args():
                         help="<option> path to minimap2 executable")
     parser.add_argument('-c', '--cutabin', type=str, default='cutadapt',
                         help="<option> path to cutadapt executable")
+    parser.add_argument('-e', '--email', type=str, default=None,
+                        help="<option> recipient email address to send error messages")                        
     parser.add_argument('--check', dest='check', default='store_true',
                         help="Check processed files to see if the files have changed since last processing them")
     parser.add_argument('--no-check', dest='check', action='store_false',
@@ -360,6 +374,28 @@ if __name__ == '__main__':
                   callback=cb.callback)
     run_scripts(runs, args.indir, args.outdir, callback=cb.callback)
 
+    if len(error_msgs) > 0 and args.email is not None:
+        cb.callback("Sending error message")
+
+        config = dotenv_values(".env")
+        try:
+            server = smtplib.SMTP_SSL(config["HOST"], int(config["PORT"]))
+            server.ehlo()
+            server.login(config["EMAIL_ADDRESS"], config["EMAIL_PASSWORD"])
+        except:
+            cb.callback("There was a problem initializing a connection with the server")
+            exit(-1)
+
+        msg = MIMEMultipart("related")
+        msg['Subject'] = "ATTENTION: Error running gromstole pipeline"
+        msg['From'] = "Gromstole Notification <{}>".format(config["EMAIL_ADDRESS"])
+        msg['To'] = args.email
+
+        body = '\r\n'.join(error_msgs)
+        msg.attach(MIMEText(body, 'plain'))
+        server.sendmail(config["EMAIL_ADDRESS"], args.email, msg.as_string())
+        server.quit()
+    
     if len(new_files) == 0:
         cb.callback("No new data files")
     else:
