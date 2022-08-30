@@ -315,6 +315,10 @@ metadata <- metadata[idx, ]
 counts <- counts[idx, ]
 cvr <- cvr[idx, ]
 
+# issue 55 - set count to NA if coverage is less than 10
+lo_cvr <- sapply(cvr, function(x) ifelse(x < 10, NA, 1))
+counts <- counts * lo_cvr
+
 
 # estimate variant frequencies
 probs <- rep(NA, nrow(counts))
@@ -324,7 +328,7 @@ for (i in 1:nrow(counts)) {
   y <- as.integer(counts[i, 1:ncol(cvr)])  # number of "successes"
   n <- as.integer(cvr[i, ])  # number of trials
   if(sum(!is.na(y)) == 0) {
-    next  # should not try to fit a model to at least one data point
+    next  # should try to fit a model to at least one data point
   }
   probs[i] <- tryCatch({
     fit <- glm(cbind(y, n-y) ~ 1, family='quasibinomial')
@@ -344,6 +348,9 @@ for (i in 1:nrow(counts)) {
   if (is.nan(probs[i])) {
     boots <- sapply(1:1000, function(i) {
       idx <- sample(1:length(y), length(y), replace=T)
+      while (all(is.na(y[idx]))) {
+        idx <- sample(1:length(y), length(y), replace=T)
+      }
       fit1 <- glm(cbind(y[idx], n[idx]-y[idx]) ~ 1, family='quasibinomial')
       bp <- fit1$coefficients[1]
       ifelse(bp > 100, 1, exp(bp)/(1+exp(bp)))
