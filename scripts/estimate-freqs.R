@@ -316,8 +316,8 @@ counts <- counts[idx, ]
 cvr <- cvr[idx, ]
 
 # issue 55 - set count to NA if coverage is less than 10
-lo_cvr <- sapply(cvr, function(x) ifelse(x < 10, NA, 1))
-counts <- counts * lo_cvr
+lo_cvr_filter <- sapply(cvr, function(x) ifelse(x < 10, NA, 1))
+counts <- counts * lo_cvr_filter
 
 
 # estimate variant frequencies
@@ -348,8 +348,13 @@ for (i in 1:nrow(counts)) {
   if (is.nan(probs[i])) {
     boots <- sapply(1:1000, function(i) {
       idx <- sample(1:length(y), length(y), replace=T)
+      attempt <- 0
       while (all(is.na(y[idx]))) {
         idx <- sample(1:length(y), length(y), replace=T)
+        attempt <- attempt + 1
+        if (attempt == 10) {
+          stop("Attempted to sample indexes from 'y' with at least one ",
+               "non-NA value too many times")
       }
       fit1 <- glm(cbind(y[idx], n[idx]-y[idx]) ~ 1, family='quasibinomial')
       bp <- fit1$coefficients[1]
