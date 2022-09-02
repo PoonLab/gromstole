@@ -436,7 +436,7 @@ if __name__ == '__main__':
         server.sendmail(config["EMAIL_ADDRESS"], args.email, msg.as_string())
         server.quit()
     
-    if len(new_files) == 0:
+    if not args.rerun and len(new_files) == 0:
         cb.callback("No new data files")
     else:
         cb.callback("All Done!")     

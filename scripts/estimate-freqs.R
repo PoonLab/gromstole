@@ -355,6 +355,7 @@ for (i in 1:nrow(counts)) {
         if (attempt == 10) {
           stop("Attempted to sample indexes from 'y' with at least one ",
                "non-NA value too many times")
+        }
       }
       fit1 <- glm(cbind(y[idx], n[idx]-y[idx]) ~ 1, family='quasibinomial')
       bp <- fit1$coefficients[1]
