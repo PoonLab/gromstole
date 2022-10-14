@@ -3,6 +3,7 @@ import subprocess
 import os
 import sys
 import csv
+import gzip
 
 # gather all metadata CSV files and extract sample collection dates
 stdout = subprocess.check_output(['find', '/data/wastewater/uploads/', '-name', 'metadata.csv'])
@@ -36,11 +37,13 @@ for path in paths:
 stdout = subprocess.check_output(['find', '/data/wastewater/results/', '-name', '*.mapped.csv'])
 paths = stdout.split()
 
-outfile = open("collate-mapped.csv", 'w')
+outfile = gzip.open("collate-mapped.csv", mode='wt')
 
 for path in paths:
     filename = os.path.basename(path).decode()
     sample = filename.split('.')[0]
+    print(sample)
+
     # retrieve lab and run name from path
     dirname = os.path.dirname(path).decode()
     try:
@@ -63,6 +66,6 @@ for path in paths:
         if cover < 10 or freq < 1e-3:
             continue
 
-        outfile.write(f"{lab},{runname},{sample},{coldate},{mut},{freq},{cover}\n")
+        outfile.write(f"{lab},{runname},{sample},{coldate},{label},{mut},{freq},{cover}\n")
 
 outfile.close()
