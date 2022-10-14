@@ -7,7 +7,14 @@ import re
 import os
 import glob
 import subprocess
+import sys
 
+import smtplib
+from dotenv import dotenv_values
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+error_msgs = []
 
 def open_connection(database, callback=None):
     """
@@ -58,6 +65,32 @@ def insert_record(curr, filepath):
                  [filepath, formatted_date, path, checksum])
 
 
+def get_runs(paths, ignore_list, runs_list, callback=None):
+    """
+    Gets the list of runs to process
+
+    :param paths: list, paths to all R1 files in the uploads directory
+    :param ignore_list: list, directories that the user would like to avoid processing
+    :param runs_list: list, directories that the user would like to processing, processes everything if none specified
+    :param callback: function, option to print messages to the console
+    :return: list, paths to all files that have not been inserted into the database and the filepaths to all runs
+    """
+    runs = set()
+    ignored = set()
+    for file in paths:
+        path, filename = os.path.split(file)
+        if contains_run(path, ignore_list):
+            ignored.add(path)
+            continue
+        if len(runs_list) == 0 or contains_run(path, runs_list):
+            runs.add(path)
+
+    for path in ignored:
+        callback("Ignoring '{}'".format(path))
+
+    return runs
+
+
 def get_files(curr, paths, ignore_list, check_processed, callback=None):
     """
     Detects if there are any new data files that have been uploaded by comparing the list of files to those that
@@ -77,7 +110,7 @@ def get_files(curr, paths, ignore_list, check_processed, callback=None):
     entered = []
     ignore = []
     for file in paths:
-        if ignore_file(file, ignore_list):
+        if contains_run(file, ignore_list):
             ignore.append(file)
             continue
         path, filename = os.path.split(file)
@@ -112,16 +145,16 @@ def get_files(curr, paths, ignore_list, check_processed, callback=None):
     return unentered, runs
 
 
-def ignore_file(file, ignore):
+def contains_run(run, usr_list):
     """
-    Ignores file if the file is within any of the user specified directories
+    Ignores/Includes run if its in the user specified directories
 
-    :param file: str, path to a file
-    :param ignore: list, directories to ignore
+    :param run: str, path to a run
+    :param usr_list: list, directories to ignore
     :return: bool, True if the directory is in the file path, False otherwise
     """
-    for directory in ignore:
-        if directory in file:
+    for directory in usr_list:
+        if directory in run:
             return True
     return False
 
@@ -181,6 +214,7 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
         except subprocess.CalledProcessError:
             if callback:
                 callback("Error running minimap2.py for {} and {}".format(r1, r2), level="ERROR")
+                error_msgs.append("Error running minimap2.py for {} and {}".format(r1, r2))
             continue
 
         # Generate plots
@@ -192,6 +226,7 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
             if callback:
                 callback("Error generating plot for {}.mapped.csv and {}.coverage.csv".format(prefix, prefix),
                          level="ERROR")
+                error_msgs.append("Error generating plot for {}.mapped.csv and {}.coverage.csv".format(prefix, prefix))
             continue
 
         result_dir = outdir + path.split(indir)[1]
@@ -203,6 +238,7 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
         if missing_file(prefix, suffixes):
             if callback:
                 callback("Output file missing for {}".format(prefix), level="ERROR")
+                error_msgs.append("Output file missing for {}".format(prefix))
             continue
 
         # Remove any files from a prior run in the results directory
@@ -230,18 +266,19 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
             callback("\t {}".format(f), level="DEBUG")
 
 
-def run_scripts(runs, indir, outdir, callback=None):
+def run_scripts(runs, indir, outdir, replace, callback=None):
     """
     Run estimate-freqs.R, make-barplots.R and make-csv.R for each run
 
     :param runs: list, location of the run files for the estimate-freqs.R script
     :param indir: str, location of the uploads folder
     :param outdir: str, location of the results folder
+    :param replace: bool, True if old files need to be replaced, False otherwise
     :param callback: function, option to print messages to the console
     :return: None
     """
 
-    lineages = ['BA.1', 'BA.2', 'B.1.617.2']
+    lineages = ['BA.1', 'BA.2', 'B.1.617.2', 'BA.4', 'BA.5', 'BA.2.75', 'BE.1']
     suffixes = ['json', 'barplot.pdf', 'csv']
     for run in runs:
         result_dir = outdir + run.split(indir)[1]
@@ -256,7 +293,7 @@ def run_scripts(runs, indir, outdir, callback=None):
                     sys.exit()
 
             filename = "{}-{}-{}".format(os.path.basename(os.path.dirname(result_dir)),
-                                              os.path.basename(result_dir), lineage.replace('.',''))
+                                         os.path.basename(result_dir), lineage.replace('.',''))
             cmd = ['Rscript', 'scripts/estimate-freqs.R', result_dir, constellation, '{}.json'.format(filename)]
 
             # Get metadata filename, not all files are named "metadata.csv"
@@ -270,10 +307,17 @@ def run_scripts(runs, indir, outdir, callback=None):
             try:
                 subprocess.check_call(cmd)
             except subprocess.CalledProcessError:
+                cmd.pop()
                 if callback:
-                    callback("Error running estimate-freqs.R: {}, {}".format(constellation, run),
-                             level="ERROR")
-                continue
+                    callback("Potentially an issue with the metadata file...Running again without the metadata file")
+                try:
+                    subprocess.check_call(cmd)
+                except:
+                    if callback:
+                        callback("Error running estimate-freqs.R: {}, {}".format(constellation, run),
+                                level="ERROR")
+                        error_msgs.append("Error running estimate-freqs.R: {}, {}".format(constellation, run))
+                    continue
 
             cmd = ['Rscript', 'scripts/make-barplots.R', '{}.json'.format(filename), '{}.barplot.pdf'.format(filename)]
             callback("Running '{}'".format(' '.join(cmd)))
@@ -283,6 +327,7 @@ def run_scripts(runs, indir, outdir, callback=None):
                 if callback:
                     callback("Error running make-barplots.R: {}, {}".format(constellation, run),
                              level="ERROR")
+                    error_msgs.append("Error running make-barplots.R: {}, {}".format(constellation, run))
                 continue
 
             cmd = ['Rscript', 'scripts/make-csv.R', '{}.json'.format(filename), '{}.csv'.format(filename)]
@@ -293,12 +338,14 @@ def run_scripts(runs, indir, outdir, callback=None):
                 if callback:
                     callback("Error running make-csv.R: {}, {}".format(constellation, run),
                              level="ERROR")
+                    error_msgs.append("Error running make-csv.R: {}, {}".format(constellation, run))
                 continue
 
             # Remove prior output files
-            resfiles = glob.glob("{}/**/{}.*".format(result_dir, filename), recursive=True)
-            for resfile in resfiles:
-                os.remove(resfile)
+            if replace:
+                resfiles = glob.glob("{}/**/{}.*".format(result_dir, filename), recursive=True)
+                for resfile in resfiles:
+                    os.remove(resfile)
 
             for suffix in suffixes:
                 stdout = subprocess.getoutput("sha1sum {}.{}".format(filename, suffix))
@@ -326,11 +373,17 @@ def parse_args():
                         help="<option> path to minimap2 executable")
     parser.add_argument('-c', '--cutabin', type=str, default='cutadapt',
                         help="<option> path to cutadapt executable")
-    parser.add_argument('--check', dest='check', default='store_true',
+    parser.add_argument('-e', '--email', type=str, default=None,
+                        help="<option> recipient email address to send error messages")                        
+    parser.add_argument('--check', dest='check', action='store_true',
                         help="Check processed files to see if the files have changed since last processing them")
-    parser.add_argument('--no-check', dest='check', action='store_false',
-                        help="Do not check processed files to see if the files have changed since last processing them")
-    parser.set_defaults(check=False)
+    parser.add_argument('--replace', dest='replace', action='store_false',
+                        help="Remove previous result files")
+    parser.add_argument('--rerun', dest='rerun', action='store_true',
+                        help="Process result files again (generate JSON, csv and barplots again)")
+    parser.add_argument('--runs', nargs="*", default=[],
+                        help="Runs to process again")
+    parser.set_defaults(check=False, replace=True, rerun=False)
 
     return parser.parse_args()
 
@@ -346,18 +399,44 @@ if __name__ == '__main__':
     except:
         cb.callback("Could not update submodules", level='ERROR')
 
-    cursor, connection = open_connection(args.db, callback=cb.callback)
-
     files = glob.glob("{}/**/*_R1_*.fastq.gz".format(args.indir), recursive=True)
-    new_files, runs = get_files(cursor, files, args.ignore_list, args.check, callback=cb.callback)
-    process_files(cursor, args.indir, args.outdir, new_files, binpath=args.binpath, cutabin=args.cutabin,
-                  callback=cb.callback)
-    run_scripts(runs, args.indir, args.outdir, callback=cb.callback)
 
-    if len(new_files) == 0:
+    if args.rerun:
+        runs = get_runs(files, args.ignore_list, args.runs, callback=cb.callback)
+    else:
+        cursor, connection = open_connection(args.db, callback=cb.callback)
+        new_files, runs = get_files(cursor, files, args.ignore_list, args.check, callback=cb.callback)
+        process_files(cursor, args.indir, args.outdir, new_files, binpath=args.binpath, cutabin=args.cutabin,
+                      callback=cb.callback)
+        connection.commit()
+        connection.close()  
+
+    # Generate result files
+    run_scripts(runs, args.indir, args.outdir, args.replace, callback=cb.callback)
+
+    if len(error_msgs) > 0 and args.email is not None:
+        cb.callback("Sending error message")
+
+        config = dotenv_values(".env")
+        try:
+            server = smtplib.SMTP_SSL(config["HOST"], int(config["PORT"]))
+            server.ehlo()
+            server.login(config["EMAIL_ADDRESS"], config["EMAIL_PASSWORD"])
+        except:
+            cb.callback("There was a problem initializing a connection with the server")
+            exit(-1)
+
+        msg = MIMEMultipart("related")
+        msg['Subject'] = "ATTENTION: Error running gromstole pipeline"
+        msg['From'] = "Gromstole Notification <{}>".format(config["EMAIL_ADDRESS"])
+        msg['To'] = args.email
+
+        body = '\r\n'.join(error_msgs)
+        msg.attach(MIMEText(body, 'plain'))
+        server.sendmail(config["EMAIL_ADDRESS"], args.email, msg.as_string())
+        server.quit()
+    
+    if not args.rerun and len(new_files) == 0:
         cb.callback("No new data files")
     else:
-        cb.callback("All Done!")
-    
-    connection.commit()
-    connection.close()
+        cb.callback("All Done!")     

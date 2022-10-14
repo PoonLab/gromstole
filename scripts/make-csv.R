@@ -34,6 +34,9 @@ if (is.null(input$estimate$upper.95)) {
 } else {
   upper.95 <- 100*input$estimate$upper.95
 }
+if (is.null(input$estimate$est)) {
+  input$estimate$est <- NA
+}
 
 df <- data.frame(
   coldate=coldate,

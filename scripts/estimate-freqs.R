@@ -77,6 +77,11 @@ refseq <- read.fasta("data/NC_045512.fa")[[1]]
 
 # load the lineage definition (mutation list)
 lineage <- gsub("^c|\\.json$", "", basename(stelfile))
+
+if (lineage[1] == "BA.2") {
+  lineage[1] <- "BA.2/BA.4/BA.5"
+}
+
 constellation <- jsonlite::read_json(stelfile, simplifyVector = TRUE)
 constellation$sites <- unique(constellation$sites)
 
@@ -310,6 +315,10 @@ metadata <- metadata[idx, ]
 counts <- counts[idx, ]
 cvr <- cvr[idx, ]
 
+# issue 55 - set count to NA if coverage is less than 10
+lo_cvr_filter <- sapply(cvr, function(x) ifelse(x < 10, NA, 1))
+counts <- counts * lo_cvr_filter
+
 
 # estimate variant frequencies
 probs <- rep(NA, nrow(counts))
@@ -318,8 +327,8 @@ hi <- rep(NA, nrow(counts))
 for (i in 1:nrow(counts)) {
   y <- as.integer(counts[i, 1:ncol(cvr)])  # number of "successes"
   n <- as.integer(cvr[i, ])  # number of trials
-  if(sum(!is.na(y)) < 3) {
-    next  # should not try to fit a model to two data points
+  if(sum(!is.na(y)) == 0) {
+    next  # should try to fit a model to at least one data point
   }
   probs[i] <- tryCatch({
     fit <- glm(cbind(y, n-y) ~ 1, family='quasibinomial')
@@ -339,6 +348,15 @@ for (i in 1:nrow(counts)) {
   if (is.nan(probs[i])) {
     boots <- sapply(1:1000, function(i) {
       idx <- sample(1:length(y), length(y), replace=T)
+      attempt <- 0
+      while (all(is.na(y[idx]))) {
+        idx <- sample(1:length(y), length(y), replace=T)
+        attempt <- attempt + 1
+        if (attempt == 10) {
+          stop("Attempted to sample indexes from 'y' with at least one ",
+               "non-NA value too many times")
+        }
+      }
       fit1 <- glm(cbind(y[idx], n[idx]-y[idx]) ~ 1, family='quasibinomial')
       bp <- fit1$coefficients[1]
       ifelse(bp > 100, 1, exp(bp)/(1+exp(bp)))
