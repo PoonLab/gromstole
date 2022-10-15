@@ -59,8 +59,9 @@ stdout = subprocess.check_output(['find', '/data/wastewater/results/', '-name', 
 paths = stdout.split()
 
 outfile = gzip.open("collate-mapped.csv.gz", mode='wt')
-outfile.write("lab,runname,sample,coldate,region,latitude,longitude,label,"\
-              "mutation,freq,coverage\n")
+writer = csv.writer(outfile)
+writer.writerow(["lab", "runname", "sample", "coldate", "region", "latitude",
+                 "longitude", "label", "mutation", "freq", "coverage"])
 
 for path in paths:
     filename = os.path.basename(path).decode()
@@ -91,10 +92,8 @@ for path in paths:
         if cover < 10 or freq < 1e-3:
             continue
 
-        outfile.write(
-            f"{lab},{runname},{sample},{md['coldate']},{md['region']},"\
-            f"{md['latitude']},{md['longitude']},{label},{mut},{freq},{cover}\n"
-        )
+        writer.writerow([lab, runname, sample, md['coldate'], md['region'],
+                         md['latitude'], md['longitude'], label, mut, freq, cover])
 
 outfile.close()
 
