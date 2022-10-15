@@ -35,19 +35,22 @@ for path in paths:
     if runname not in metadata[lab]:
         metadata[lab].update({runname: {}})
 
-    handle = open(path, 'rb')
-    for line in handle:
-        line2 = line.decode('latin-1')  #.encode("utf-8")
-        tokens = line2.split(',')
-        if tokens[0] == '' or tokens[0] == 'specimen collector sample ID':
-            # skip header row or blank row, i.e., ",,,,,,,"
-            continue
-        sample = tokens[0]
-        metadata[lab][runname].update({sample: {
-            'coldate': tokens[3],
-            'region': tokens[5],
-            'latitude': tokens[7],
-            'longitude': tokens[8]
+    handle = open(path, encoding='latin-1')
+    for row in csv.DictReader(handle):
+        sample_key = list(row.keys())[0]
+        try:
+            if len(row) == 1 or row[sample_key] == '':
+                # skip blank row, i.e., ",,,,,,,"
+                continue
+        except:
+            print(row)
+            raise
+
+        metadata[lab][runname].update({row[sample_key]: {
+            'coldate': row['sample collection date'],
+            'region': row['geolocation name (region)'],
+            'latitude': row['geolocation latitude'],
+            'longitude': row['geolocation longitude']
         }})
 
 
