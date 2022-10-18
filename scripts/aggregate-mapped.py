@@ -25,8 +25,9 @@ data = {}  # region / week / mutation
 handle = gzip.open("data/collate-mapped.csv.gz", 'rt')
 reader = csv.DictReader(handle)
 for i, row in enumerate(reader):
-    if i > 1000:
-        break
+    #if i > 1e6: break
+    if i % 1e5 == 0:
+        print(i)
     location = row['region']
     region = regions.get(location, None)
     if region is None:
@@ -36,6 +37,9 @@ for i, row in enumerate(reader):
 
     # convert collection date to epiweek
     coldate = parse_date(row['coldate'])
+    if coldate is None:
+        # print(row)  # all one run from Western, K7DTB_16FEB22
+        continue
     epiweek = Week.fromdate(coldate.date())
     if epiweek not in data[region]:
         data[region].update({epiweek: {}})
@@ -59,9 +63,12 @@ outfile.write("region,year,epiweek,nuc,amino,nsamples,count,coverage\n")
 for region, rdata in data.items():
     for epiweek, edata in rdata.items():
         for mutation, mdata in edata.items():
+            if mdata['count'] < 2:
+                continue  # exclude mutations only seen in one read
             outfile.write(
                 f"{region},{epiweek.year},{epiweek.week},{mutation[0]},"
-                f"{mutation[1]},{mdata['samples']},{mdata['count']},"
-                f"{mdata['coverage']}\n"
+                f"{mutation[1]},{mdata['samples']},"
+                f"{int(mdata['count'])},"
+                f"{int(mdata['coverage'])}\n"
             )
 outfile.close()
