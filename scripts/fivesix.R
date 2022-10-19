@@ -1,29 +1,34 @@
 setwd("~/git/gromstole")
 ag <- read.csv(gzfile("data/aggregated-min5.csv.gz"), row.names=1)
 
+# use regular expressions to filter for mutations of interest
 pat <- "aa:S:(R346[KT]|K444[MRT]|L452[MR]|N460K|F486[SV]|Q493R)"
 df <- ag[grepl(pat, ag$amino), ]
 
+# count is number of reads carrying mutation in any sample
 df$freq <- df$count / df$coverage
+
+# merge two northern regions, low number of samples
 df$region[df$region=="North West"] <- "North"
 df$region[df$region=="North East"] <- "North"
 regions <- unique(df$region)
 
+# restrict to current year, for convenience
 df2 <- df[df$year==2022, ]
+df2 <- df2[order(df2$epiweek), ]  # sort by week for clean line plots
 
-# invert reversion
+# invert Q493R reversion (Q is reference amino acid)
+# associated with compensatory effect on receptor affinity (BA.4/5)
 df2$freq[df2$amino=="aa:S:Q493R"] <- 1 - df2$freq[df2$amino=="aa:S:Q493R"]
 df2$amino[df2$amino=="aa:S:Q493R"] <- "aa:S:R493Q"
 
+# get AA position (shared by multiple substitutions)
 df2$pos <- gsub("aa:S:[A-Z]+([0-9]+)[A-Z]+", "\\1", df2$amino)
-df2 <- df2[order(df2$epiweek), ]
-#mutations <- c("aa:S:R346T", "aa:S:K444T", "aa:S:L452R", 
-#          "aa:S:N460K", "aa:S:F486S", "aa:S:Q493R")
-
-require(ggfree)
-pal <- gg.rainbow(3, l=60)
 all.pos <- sort(unique(df2$pos))
 
+# plotting code
+require(ggfree)
+pal <- gg.rainbow(3, l=60)
 
 for (reg in regions) {
   df3 <- df2[df2$region==reg, ]
@@ -56,8 +61,10 @@ for (reg in regions) {
     for (j in 1:length(mutations)) {
       mut <- mutations[j]
       idx <- temp$amino == mut
-      points(temp$epiweek[idx], temp$freq[idx], type='o', 
-             col=pal[j], pch=19, cex=sqrt(temp$nsamples[idx])/2)
+      lines(temp$epiweek[idx], temp$freq[idx], col=pal[j])
+      points(temp$epiweek[idx], temp$freq[idx], 
+             col='white', bg=pal[j], pch=21, #cex=sqrt(temp$nsamples[idx])/2)
+             cex=sqrt(temp$coverage[idx]/temp$nsamples[idx])/20)
     }
   }  
   dev.off()
