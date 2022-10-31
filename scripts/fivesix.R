@@ -1,5 +1,7 @@
 setwd("~/git/gromstole")
-ag <- read.csv(gzfile("data/aggregated-min5.csv.gz"), row.names=1)
+#ag <- read.csv(gzfile("data/aggregated-min5.csv.gz"), row.names=1)
+ag <- read.csv("data/aggregate-mapped.csv")
+ag <- ag[ag$count >= 5, ]
 
 # use regular expressions to filter for mutations of interest
 pat <- "aa:S:(R346[KT]|K444[MRT]|L452[MR]|N460K|F486[SV]|Q493R)"
