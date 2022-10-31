@@ -37,7 +37,7 @@ for path in paths:
 
     handle = open(path, encoding='latin-1')
     for row in csv.DictReader(handle):
-        sample_key = list(row.keys())[0]
+        sample_key = 'r1 fastq filename'  #list(row.keys())[0]
         try:
             if len(row) == 1 or row[sample_key] == '':
                 # skip blank row, i.e., ",,,,,,,"
@@ -46,7 +46,12 @@ for path in paths:
             print(row)
             raise
 
-        metadata[lab][runname].update({row[sample_key]: {
+        sample = row[sample_key].split('_')[0]
+
+        if lab == 'western':
+            sample = sample.replace('_', '-')
+
+        metadata[lab][runname].update({sample: {
             'coldate': row['sample collection date'],
             'region': row['geolocation name (region)'],
             'latitude': row['geolocation latitude'],
@@ -75,11 +80,17 @@ for path in paths:
     except:
         continue  # mapped CSV in wrong location
 
-    if lab not in metadata or runname not in metadata[lab] or \
-        sample not in metadata[lab][runname]:
-
-        print(f"failed to map {lab}/{runname}/{sample} to coldate dict")
+    # troubleshoot failed matches
+    if lab not in metadata:
+        print(f"lab {lab} not in metadata: {metadata.keys()}")
         continue
+    if runname not in metadata[lab]:
+        print(f"run {runname} not in {lab} metadata: {metadata[lab].keys()}")
+        continue
+    if sample not in metadata[lab][runname]:
+        print(f"sample {sample} not in {lab}/{runname} metadata: {metadata[lab][runname].keys()}")
+        continue
+
     md = metadata[lab][runname][sample]
 
     handle = open(path, 'rb')
