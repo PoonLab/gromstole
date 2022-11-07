@@ -73,7 +73,6 @@ require(lubridate)
 require(jsonlite)
 require(seqinr)
 
-refseq <- read.fasta("data/NC_045512.fa")[[1]]
 
 # load the lineage definition (mutation list)
 lineage <- gsub("^c|\\.json$", "", basename(stelfile))
@@ -88,56 +87,10 @@ constellation$sites <- unique(constellation$sites)
 # Calculate the length of orf1a to determine if a mutation is in orf1a or orf1b
 len_1a <- (orfs[['orf1a']][2]-orfs[['orf1a']][1])/3 + 1
 
-# convert constellation to label notation in the mapped files
-sites <- lapply(unique(constellation$sites), function(d) {
-  toks <- toupper(strsplit(d, ":")[[1]])
 
-  if (toks[1] != "DEL" && toks[1] != "NUC")
-    toks <- c("aa", toks)
-  
-  if (toks[2] == "S" || toks[2] == "SPIKE") {
-    toks[[2]] <- "S"
-  } else if (toks[1] == "DEL") {
-    toks[[1]] <- "del"
-  } else if (toks[1] == "NUC") {
-    toks <- toks[-1]
-    toks[[1]] <- substring(toks[1], 1, nchar(toks[1]))
-  } else if (toks[2] == "8") {
-    toks[[2]] <- "orf8"
-  } else if (toks[2] == "ORF1AB" || toks[2] == "1AB") {
-    num <- as.numeric(re.findall("\\d+", toks[3]))
-    if (num <= len_1a) {
-      toks[[2]] <- "orf1a"
-    } else {
-      # Determine nucleotide position relative to the start of orf1b
-      new_pos <- (((num-1) * 3 + orfs[['orf1a']][1]) - orfs[['orf1b']][1])/3
-      toks[[3]] <- gsub(num, floor(new_pos) + 1, toks[[3]])
-      toks[[2]] <- "orf1b"
-    }
-  } else if (nchar(toks[2]) >= 3 && substring(toks[2], 1, 3) == "ORF") {
-    toks[[2]] <- tolower(toks[2])
-  } else if (substring(toks[2], 1, 3) == "NSP") {
-    start_pos <- orfs[[tolower(toks[2])]][1]
-    codon <- as.integer(re.findall("\\d+", toks[3]))
-    nuc_pos <- start_pos + (codon-1)*3
-    if (nuc_pos >= orfs[['orf1a']][1] && nuc_pos <= orfs[['orf1a']][2]) {
-      toks[[2]] <- 'orf1a'
-    }
-    else if (nuc_pos >= orfs[['orf1b']][1] && nuc_pos <= orfs[['orf1b']][2]) {
-      toks[[2]] <- 'orf1b'
-    }
-    else {
-      stop("Could not convert nsp to orf1a/b")
-    }
-    new_pos <- ((nuc_pos - orfs[[toks[2]]][1])/3) + 1
-    toks[[3]] <- gsub(codon, floor(new_pos), toks[[3]])
-  }
-  
-  if (grepl("+", toks[1], fixed = TRUE)) {
-    ins <- strsplit(toks[[1]], split = "[+]")[[1]]
-    toks[[1]] <- gsub(" ", "", paste("+", ins[1], ".", ins[2]))
-  }
-  toks <- paste(toks, collapse = ":")
+sites <- lapply(unique(constellation$sites$nt), function(d) {
+  toks <- lapply(strsplit(d, ",")[[1]], toupper)
+  toks <- unlist(toks, recursive = FALSE)
 })
 
 sites <- unlist(sites, recursive = FALSE)
@@ -174,24 +127,16 @@ maps <- lapply(mfiles, function(f) {
                        })
   
   mapped$label <- gsub("^~", "", mapped$label)
-  index_label <- match(sites, mapped$label)
+  sites_match <- gsub("^[^+-]", "", sites)
+  index_label <- match(sites_match, mapped$label)
   
-  # retrieve reference nucleotides for synonymous substitutions (nuc:)
-  mapped$mutation[mapped$mutation=='None'] <- 
-    paste(toupper(refseq[mapped$pos[mapped$mutation=='None']]), 
-          mapped$label[mapped$mutation=='None'], sep='')
-  index <- match(sites, mapped$mutation)
-  
-  for (i in 1:length(index)) {
-    if (!is.na(index_label[i])) {
-      index[[i]] <- index_label[[i]]
-    }
-    if (!is.na(index[[i]]) && is.na(pos[[i]])) {
-      pos[i] <- mapped$pos[index[i]]
+  for (i in 1:length(index_label)) {
+    if (!is.na(index_label[[i]]) && is.na(pos[[i]])) {
+      pos[i] <- mapped$pos[index_label[i]]
     }
   }
-  list(counts=mapped$frequency[index], 
-       coverage=mapped$coverage[index],
+  list(counts=mapped$frequency[index_label], 
+       coverage=mapped$coverage[index_label],
        pos=pos)
 })
 
