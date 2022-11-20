@@ -16,11 +16,17 @@ if (is.null(input$results$count)) {
 coverage <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
   input$results$coverage[which(input$results$nucleotide == d)]
 }))
-row.names(coverage) <- unique(input$results$sample)
 
 counts <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
   input$results$count[which(input$results$nucleotide == d)]
 }))
+
+if (length(unique(input$results$sample)) == 1) {
+  coverage <- t(coverage)
+  counts <- t(counts)
+}
+
+row.names(coverage) <- unique(input$results$sample)
 row.names(counts) <- unique(input$results$sample)
 
 # deal with missing metadata

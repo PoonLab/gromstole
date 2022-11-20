@@ -21,11 +21,17 @@ if (is.null(input$results$count)) {
 cvr <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
   input$results$coverage[which(input$results$nucleotide == d)]
 }))
-row.names(cvr) <- unique(input$results$sample)
 
 counts <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
   input$results$count[which(input$results$nucleotide == d)]
 }))
+
+if (length(unique(input$results$sample)) == 1) {
+  cvr <- t(cvr)
+  counts <- t(counts)
+}
+
+row.names(cvr) <- unique(input$results$sample)
 row.names(counts) <- unique(input$results$sample)
 
 if (is.null(metadata$coldate)) {
