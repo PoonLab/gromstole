@@ -9,6 +9,10 @@ input <- jsonlite::read_json(args[1], simplifyVector = TRUE)
 outfile <- args[2]
 
 # deal with columns of all NAs in counts
+if (is.null(input$results$count)) {
+  input$results$count <- NA
+}
+
 coverage <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
   input$results$coverage[which(input$results$nucleotide == d)]
 }))

@@ -14,6 +14,10 @@ lineage <- input$lineage
 estimate <- input$estimate
 metadata <- input$metadata
 
+if (is.null(input$results$count)) {
+  input$results$count <- NA
+}
+
 cvr <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
   input$results$coverage[which(input$results$nucleotide == d)]
 }))
