@@ -9,7 +9,15 @@ input <- jsonlite::read_json(args[1], simplifyVector = TRUE)
 outfile <- args[2]
 
 # deal with columns of all NAs in counts
-coverage <- input$coverage[names(input$counts)]
+coverage <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
+  input$results$coverage[which(input$results$nucleotide == d)]
+}))
+row.names(coverage) <- unique(input$results$sample)
+
+counts <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
+  input$results$count[which(input$results$nucleotide == d)]
+}))
+row.names(counts) <- unique(input$results$sample)
 
 # deal with missing metadata
 coldate <- input$metadata$coldate
@@ -21,7 +29,7 @@ if (is.null(site)) {
   site <- NA
 }
 
-fq <- input$counts / coverage
+fq <- counts / coverage
 fq[coverage<10] <- NA
 
 if (is.null(input$estimate$lower.95)) {
@@ -41,7 +49,7 @@ if (is.null(input$estimate$est)) {
 df <- data.frame(
   coldate=coldate,
   site=site,
-  n.muts=apply(input$counts, 1, function(x) sum(x>0, na.rm=T)),
+  n.muts=apply(counts, 1, function(x) sum(x>0, na.rm=T)),
   cover=apply(coverage, 1, function(x) sum(x>0)),
   #min.freq=apply(fq, 1, function(x) 100*min(x, na.rm=T)),
   #med.freq=apply(fq, 1, function(x) 100*median(x, na.rm=T)),
