@@ -84,17 +84,15 @@ if (lineage[1] == "BA.2") {
 constellation <- jsonlite::read_json(stelfile, simplifyVector = TRUE)
 constellation$sites <- unique(constellation$sites)
 
-# Calculate the length of orf1a to determine if a mutation is in orf1a or orf1b
-len_1a <- (orfs[['orf1a']][2]-orfs[['orf1a']][1])/3 + 1
+map_sites <- list()
+for (i in 1:length(constellation$sites$nt)) {
+  toks <- lapply(strsplit(constellation$sites$nt[[i]], ",")[[1]], toupper)
+  for(tok in toks) {
+    map_sites[tok] <- constellation$sites$aa[[i]] 
+  }
+}
 
-
-sites <- lapply(unique(constellation$sites$nt), function(d) {
-  toks <- lapply(strsplit(d, ",")[[1]], toupper)
-  toks <- unlist(toks, recursive = FALSE)
-})
-
-sites <- unlist(sites, recursive = FALSE)
-
+sites <- names(map_sites)
 
 # locate data files
 require(here)
@@ -167,23 +165,11 @@ if (all(is.na(positions))) {
 # handle missing positions (mutation never observed)
 for (i in which(is.na(pos))) {
   # guess from mutation annotation
-  toks <- strsplit(sites[i], ":")[[1]]
-  if (length(toks) == 1) {
-    # nucleotide substitution, parse position directly
-    num <- re.findall("\\d+", toks[1])
-    pos[i] <- as.integer(num)
-  } 
-  else if (toks[1] == "del") {
-    # deletion annotation also contains position
-    pos[i] <- as.integer(toks[2])
-  }
-  else {
-    # use first codon position for AA substitution
-    # TODO: Error handling
-    start_pos <- orfs[[toks[2]]][1]  # look up ref coord
-    codon <- as.integer(re.findall("\\d+", toks[3]))
-    pos[i] <- start_pos + (codon-1)*3
-  }
+
+  # parse position directly
+  num <- re.findall("\\d+", sites[i])
+  pos[i] <- as.integer(num)
+
 }
 
 
@@ -314,8 +300,30 @@ for (i in 1:nrow(counts)) {
 estimate <- data.frame(est=probs, lower.95=lo, upper.95=hi)
 row.names(estimate) <- row.names(counts)
 
+output_samples <- rep(NA, length(sample.id) * length(sites))
+output_mutations <- rep(NA, length(sample.id) * length(sites))
+output_nucleotides <- rep(NA, length(sample.id) * length(sites))
+output_counts <- rep(NA, length(sample.id) * length(sites))
+output_cvr <- rep(NA, length(sample.id) * length(sites))
+
+i <- 0
+for (sample in row.names(counts)) {
+  for (site in sites) {
+    i <- i+1
+    output_samples[i] <- sample
+    output_mutations[i] <- map_sites[site][[1]]
+    output_nucleotides[i] <- site
+    output_counts[i] <- counts[sample,site]
+    output_cvr[i] <- cvr[sample,site]
+  }
+}
+
+sample_information <- data.frame(sample=output_samples, mutation=output_mutations, 
+                                 nucleotide=output_nucleotides, count=output_counts,
+                                 coverage=output_cvr)
+
 # write output JSON
-output <- list(counts=counts, coverage=cvr, metadata=metadata,
+output <- list(results=sample_information, metadata=metadata,
                estimate=estimate, lineage=lineage, run.dir=run.dir)
 jsonlite::write_json(output, outfile, pretty=TRUE)
 
