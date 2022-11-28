@@ -5,7 +5,7 @@ from epiweeks import Week
 import json
 
 
-def parse_date(dt, formats=('%Y-%m-%d', '%d-%b-%y', '%m/%d/%Y')):
+def parse_date(dt, formats=('%Y-%m-%d', '%d-%b-%y', '%m/%d/%Y', '%d/%m/%y')):
     """ Try multiple date formats """
     if dt in ['UNK']:
         return None
@@ -58,7 +58,7 @@ for i, row in enumerate(reader):
 
 # output aggregated data
 print("Writing outputs...")
-outfile = open("aggregate-mapped.csv", 'w')
+outfile = open("data/aggregate-mapped.csv", 'w')
 outfile.write("region,year,epiweek,nuc,amino,nsamples,count,coverage\n")
 for region, rdata in data.items():
     for epiweek, edata in rdata.items():
