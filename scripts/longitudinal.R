@@ -22,7 +22,7 @@ gather.csv <- function(variant) {
   #df <- df[!is.na(df$Estimate), ]
   df$coldate <- as.Date(df$Date.collected)
   # ignore samples with dates earlier than 2021-09-01, probably mis-parsed
-  df[!is.na(df$coldate) & df$coldate > as.Date('2021-09-01') & df$coldate < as.Date('2022-09-15'),]
+  df[!is.na(df$coldate) & df$coldate > as.Date('2021-09-01') & df$coldate < today(),]
 }
 
 delta <- gather.csv("B16172")
@@ -36,10 +36,10 @@ be1 <- gather.csv("BE1")
 pal <- rep(add.alpha(c("#C20430", "#ffd54f", "#4F2683"), 0.5), 
            table(delta$lab))
 
-months <- seq(as.Date('2021-09-01'), as.Date('2022-09-15'), by='months')
+months <- seq(as.Date('2021-09-01'), today(), by='months')
 
 # ===============
-png("longitudinal.2022-09-12.png", width=9*600, height=9*600, res=600)
+png(paste("longitudinal", today(), "png", sep='.'), width=9*600, height=9*600, res=600)
 par(mar=c(5,5,1,1), mfrow=c(3,3))
 
 plot(delta$coldate, delta$Estimate, bg=pal, pch=21, main='Delta (B.1.617.2)',
