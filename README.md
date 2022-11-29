@@ -66,40 +66,76 @@ here() starts at /home/art/git/gromstole
 This yields the following JSON file:
 ```json
 {
-  "counts": [
+  "results": [
     {
-      "aa:S:T19R": 643,
-      "aa:S:G142D": 3,
-      "aa:S:L452R": 915,
-      "aa:S:T478K": 810,
-      "aa:S:P681R": 2010,
-      "aa:S:D950N": 1629,
-      "aa:orf3a:S26L": 1539,
-      "aa:M:I82T": 1915,
-      "aa:orf7a:V82A": 501,
-      "aa:orf7a:T120I": 563,
-      "aa:N:D63G": 2056,
-      "aa:N:R203M": 845,
-      "aa:N:D377Y": 646,
-      "_row": "SRR17724299_1"
-    }
-  ],
-  "coverage": [
+      "sample": "SRR17724299_1",
+      "mutation": "S:T19R",
+      "nucleotide": "C21618G",
+      "count": 643,
+      "coverage": 653
+    },
     {
-      "aa:S:T19R": 653,
-      "aa:S:G142D": 312,
-      "aa:S:L452R": 935,
-      "aa:S:T478K": 815,
-      "aa:S:P681R": 2025,
-      "aa:S:D950N": 2078,
-      "aa:orf3a:S26L": 1556,
-      "aa:M:I82T": 1922,
-      "aa:orf7a:V82A": 502,
-      "aa:orf7a:T120I": 567,
-      "aa:N:D63G": 2078,
-      "aa:N:R203M": 852,
-      "aa:N:D377Y": 655,
-      "_row": "SRR17724299_1"
+      "sample": "SRR17724299_1",
+      "mutation": "S:P681R",
+      "nucleotide": "C23604G",
+      "count": 2010,
+      "coverage": 2025
+    },
+    {
+      "sample": "SRR17724299_1",
+      "mutation": "S:D950N",
+      "nucleotide": "G24410A",
+      "count": 1629,
+      "coverage": 2078
+    },
+    {
+      "sample": "SRR17724299_1",
+      "mutation": "ORF3a:S26L",
+      "nucleotide": "C25469T",
+      "count": 1539,
+      "coverage": 1556
+    },
+    {
+      "sample": "SRR17724299_1",
+      "mutation": "M:I82T",
+      "nucleotide": "T26767C",
+      "count": 1915,
+      "coverage": 1922
+    },
+    {
+      "sample": "SRR17724299_1",
+      "mutation": "ORF7a:V82A",
+      "nucleotide": "T27638C",
+      "count": 501,
+      "coverage": 502
+    },
+    {
+      "sample": "SRR17724299_1",
+      "mutation": "ORF7a:T120I",
+      "nucleotide": "C27752T",
+      "count": 563,
+      "coverage": 567
+    },
+    {
+      "sample": "SRR17724299_1",
+      "mutation": "N:D63G",
+      "nucleotide": "A28461G",
+      "count": 2056,
+      "coverage": 2078
+    },
+    {
+      "sample": "SRR17724299_1",
+      "mutation": "N:R203M",
+      "nucleotide": "G28881T",
+      "count": 845,
+      "coverage": 852
+    },
+    {
+      "sample": "SRR17724299_1",
+      "mutation": "N:D377Y",
+      "nucleotide": "G29402T",
+      "count": 646,
+      "coverage": 655
     }
   ],
   "metadata": [
@@ -110,9 +146,9 @@ This yields the following JSON file:
   ],
   "estimate": [
     {
-      "est": 0.941,
-      "lower.95": 0.8149,
-      "upper.95": 0.992,
+      "est": 0.9576,
+      "lower.95": 0.8888,
+      "upper.95": 0.9903,
       "_row": "SRR17724299_1"
     }
   ],
@@ -125,7 +161,7 @@ This yields the following JSON file:
 
 Our current modelling strategy consists of a quasibinomial GLM for the count and coverage of the mutations that define a VOC, which are parsed from constellation JSON files curated by [cov-lineages](https://github.com/cov-lineages/constellations/).
 
-The script `minimap2.py` is currently accepts paired-end reads in separate FASTQ files and outputs `[prefix]-mapped.csv` and `[prefix]-coverage.csv` into the specified output directory. It uses `data/NC043312.fa` as a reference genome, but an alternative FASTA file can be specified by the user.  By default, it uses cutadapt to trim adapter sequences from the data.
+The script `minimap2.py` currently accepts paired-end reads in separate FASTQ files and outputs `[prefix]-mapped.csv` and `[prefix]-coverage.csv` into the specified output directory. It uses `data/NC043312.fa` as a reference genome, but an alternative FASTA file can be specified by the user.  By default, it uses cutadapt to trim adapter sequences from the data.
 
 Use `python3 scripts/minimap2.py -h` to see all of the options.
 
