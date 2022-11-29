@@ -73,7 +73,6 @@ require(lubridate)
 require(jsonlite)
 require(seqinr)
 
-refseq <- read.fasta("data/NC_045512.fa")[[1]]
 
 # load the lineage definition (mutation list)
 lineage <- gsub("^c|\\.json$", "", basename(stelfile))
@@ -85,63 +84,15 @@ if (lineage[1] == "BA.2") {
 constellation <- jsonlite::read_json(stelfile, simplifyVector = TRUE)
 constellation$sites <- unique(constellation$sites)
 
-# Calculate the length of orf1a to determine if a mutation is in orf1a or orf1b
-len_1a <- (orfs[['orf1a']][2]-orfs[['orf1a']][1])/3 + 1
-
-# convert constellation to label notation in the mapped files
-sites <- lapply(unique(constellation$sites), function(d) {
-  toks <- toupper(strsplit(d, ":")[[1]])
-
-  if (toks[1] != "DEL" && toks[1] != "NUC")
-    toks <- c("aa", toks)
-  
-  if (toks[2] == "S" || toks[2] == "SPIKE") {
-    toks[[2]] <- "S"
-  } else if (toks[1] == "DEL") {
-    toks[[1]] <- "del"
-  } else if (toks[1] == "NUC") {
-    toks <- toks[-1]
-    toks[[1]] <- substring(toks[1], 1, nchar(toks[1]))
-  } else if (toks[2] == "8") {
-    toks[[2]] <- "orf8"
-  } else if (toks[2] == "ORF1AB" || toks[2] == "1AB") {
-    num <- as.numeric(re.findall("\\d+", toks[3]))
-    if (num <= len_1a) {
-      toks[[2]] <- "orf1a"
-    } else {
-      # Determine nucleotide position relative to the start of orf1b
-      new_pos <- (((num-1) * 3 + orfs[['orf1a']][1]) - orfs[['orf1b']][1])/3
-      toks[[3]] <- gsub(num, floor(new_pos) + 1, toks[[3]])
-      toks[[2]] <- "orf1b"
-    }
-  } else if (nchar(toks[2]) >= 3 && substring(toks[2], 1, 3) == "ORF") {
-    toks[[2]] <- tolower(toks[2])
-  } else if (substring(toks[2], 1, 3) == "NSP") {
-    start_pos <- orfs[[tolower(toks[2])]][1]
-    codon <- as.integer(re.findall("\\d+", toks[3]))
-    nuc_pos <- start_pos + (codon-1)*3
-    if (nuc_pos >= orfs[['orf1a']][1] && nuc_pos <= orfs[['orf1a']][2]) {
-      toks[[2]] <- 'orf1a'
-    }
-    else if (nuc_pos >= orfs[['orf1b']][1] && nuc_pos <= orfs[['orf1b']][2]) {
-      toks[[2]] <- 'orf1b'
-    }
-    else {
-      stop("Could not convert nsp to orf1a/b")
-    }
-    new_pos <- ((nuc_pos - orfs[[toks[2]]][1])/3) + 1
-    toks[[3]] <- gsub(codon, floor(new_pos), toks[[3]])
+map_sites <- list()
+for (i in 1:length(constellation$sites$nt)) {
+  toks <- lapply(strsplit(constellation$sites$nt[[i]], ",")[[1]], toupper)
+  for(tok in toks) {
+    map_sites[tok] <- constellation$sites$aa[[i]] 
   }
-  
-  if (grepl("+", toks[1], fixed = TRUE)) {
-    ins <- strsplit(toks[[1]], split = "[+]")[[1]]
-    toks[[1]] <- gsub(" ", "", paste("+", ins[1], ".", ins[2]))
-  }
-  toks <- paste(toks, collapse = ":")
-})
+}
 
-sites <- unlist(sites, recursive = FALSE)
-
+sites <- names(map_sites)
 
 # locate data files
 require(here)
@@ -174,24 +125,16 @@ maps <- lapply(mfiles, function(f) {
                        })
   
   mapped$label <- gsub("^~", "", mapped$label)
-  index_label <- match(sites, mapped$label)
+  sites_match <- gsub("^[^+-]", "", sites)
+  index_label <- match(sites_match, mapped$label)
   
-  # retrieve reference nucleotides for synonymous substitutions (nuc:)
-  mapped$mutation[mapped$mutation=='None'] <- 
-    paste(toupper(refseq[mapped$pos[mapped$mutation=='None']]), 
-          mapped$label[mapped$mutation=='None'], sep='')
-  index <- match(sites, mapped$mutation)
-  
-  for (i in 1:length(index)) {
-    if (!is.na(index_label[i])) {
-      index[[i]] <- index_label[[i]]
-    }
-    if (!is.na(index[[i]]) && is.na(pos[[i]])) {
-      pos[i] <- mapped$pos[index[i]]
+  for (i in 1:length(index_label)) {
+    if (!is.na(index_label[[i]]) && is.na(pos[[i]])) {
+      pos[i] <- mapped$pos[index_label[i]]
     }
   }
-  list(counts=mapped$frequency[index], 
-       coverage=mapped$coverage[index],
+  list(counts=mapped$frequency[index_label], 
+       coverage=mapped$coverage[index_label],
        pos=pos)
 })
 
@@ -222,23 +165,11 @@ if (all(is.na(positions))) {
 # handle missing positions (mutation never observed)
 for (i in which(is.na(pos))) {
   # guess from mutation annotation
-  toks <- strsplit(sites[i], ":")[[1]]
-  if (length(toks) == 1) {
-    # nucleotide substitution, parse position directly
-    num <- re.findall("\\d+", toks[1])
-    pos[i] <- as.integer(num)
-  } 
-  else if (toks[1] == "del") {
-    # deletion annotation also contains position
-    pos[i] <- as.integer(toks[2])
-  }
-  else {
-    # use first codon position for AA substitution
-    # TODO: Error handling
-    start_pos <- orfs[[toks[2]]][1]  # look up ref coord
-    codon <- as.integer(re.findall("\\d+", toks[3]))
-    pos[i] <- start_pos + (codon-1)*3
-  }
+
+  # parse position directly
+  num <- re.findall("\\d+", sites[i])
+  pos[i] <- as.integer(num)
+
 }
 
 
@@ -369,8 +300,30 @@ for (i in 1:nrow(counts)) {
 estimate <- data.frame(est=probs, lower.95=lo, upper.95=hi)
 row.names(estimate) <- row.names(counts)
 
+output_samples <- rep(NA, length(sample.id) * length(sites))
+output_mutations <- rep(NA, length(sample.id) * length(sites))
+output_nucleotides <- rep(NA, length(sample.id) * length(sites))
+output_counts <- rep(NA, length(sample.id) * length(sites))
+output_cvr <- rep(NA, length(sample.id) * length(sites))
+
+i <- 0
+for (sample in row.names(counts)) {
+  for (site in sites) {
+    i <- i+1
+    output_samples[i] <- sample
+    output_mutations[i] <- map_sites[site][[1]]
+    output_nucleotides[i] <- site
+    output_counts[i] <- counts[sample,site]
+    output_cvr[i] <- cvr[sample,site]
+  }
+}
+
+sample_information <- data.frame(sample=output_samples, mutation=output_mutations, 
+                                 nucleotide=output_nucleotides, count=output_counts,
+                                 coverage=output_cvr)
+
 # write output JSON
-output <- list(counts=counts, coverage=cvr, metadata=metadata,
+output <- list(results=sample_information, metadata=metadata,
                estimate=estimate, lineage=lineage, run.dir=run.dir)
 jsonlite::write_json(output, outfile, pretty=TRUE)
 
