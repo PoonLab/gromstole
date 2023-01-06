@@ -277,8 +277,11 @@ def run_scripts(runs, indir, outdir, replace, callback=None):
     :param callback: function, option to print messages to the console
     :return: None
     """
+    
+    if not os.path.exists('results'):
+        os.makedirs(os.path.join(os.getcwd(), "results"), exist_ok=True)
 
-    lineages = ['BA.1', 'BA.2', 'B.1.617.2', 'BA.4', 'BA.5', 'BA.2.75', 'BE.1']
+    lineages = ['BA.1', 'BA.2', 'B.1.617.2', 'BA.4', 'BA.5', 'BA.2.75', 'BE.1', 'BQ.1.1']
     suffixes = ['json', 'barplot.pdf', 'csv']
     for run in runs:
         result_dir = outdir + run.split(indir)[1]
@@ -352,6 +355,13 @@ def run_scripts(runs, indir, outdir, replace, callback=None):
                 checksum = stdout.split(' ')[0][:10]
                 new_filename = "{}.{}.{}".format(filename, checksum, suffix)
                 os.rename('{}.{}'.format(filename, suffix), new_filename)
+
+                # Check if directories exist before copying/moving files
+                if not os.path.exists(result_dir):
+                    os.makedirs(result_dir, exist_ok=True)
+                if not os.path.exists('results/{}'.format(os.path.basename(result_dir))):
+                    os.makedirs("results/{}".format(os.path.basename(result_dir)), exist_ok=True)
+
                 shutil.copy(new_filename, result_dir)
                 shutil.move(new_filename, "results/{}/{}".format(os.path.basename(result_dir), new_filename))
 

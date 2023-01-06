@@ -1,10 +1,11 @@
 setwd("~/git/gromstole")
 #ag <- read.csv(gzfile("data/aggregated-min5.csv.gz"), row.names=1)
+#ag <- read.csv(gzfile("data/aggregate-mapped.csv.gz"))
 ag <- read.csv("data/aggregate-mapped.csv")
 ag <- ag[ag$count >= 5, ]
 
 # use regular expressions to filter for mutations of interest
-pat <- "aa:S:(R346[KT]|K444[MRT]|L452[MR]|N460K|F486[SV]|Q493R)"
+pat <- "aa:S:(R346[KT]|K417T|K444[MRT]|L452[MR]|N460K|F486[ISV]|F490S|Q493R)"
 df <- ag[grepl(pat, ag$amino), ]
 
 # count is number of reads carrying mutation in any sample
@@ -36,8 +37,8 @@ for (reg in regions) {
   df3 <- df2[df2$region==reg, ]
   
   # prepare plotting device
-  pdf(paste(reg, "pdf", sep='.'), width=12, height=8)
-  par(mfrow=c(2,3), mar=c(5,5,1,1), cex=0.9)
+  pdf(paste(reg, "pdf", sep='.'), width=12, height=12)
+  par(mfrow=c(3,3), mar=c(5,5,1,1), cex=0.9)
   
   for (i in 1:length(all.pos)) {
     pos <- all.pos[i]

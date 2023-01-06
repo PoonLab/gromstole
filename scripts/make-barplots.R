@@ -11,9 +11,28 @@ outfile <- args[2]
 # parse JSON
 run.dir <- input$run.dir
 lineage <- input$lineage
-cvr <- input$coverage[names(input$counts)]
 estimate <- input$estimate
 metadata <- input$metadata
+
+if (is.null(input$results$count)) {
+  input$results$count <- NA
+}
+
+cvr <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
+  input$results$coverage[which(input$results$nucleotide == d)]
+}))
+
+counts <- as.data.frame(sapply(unique(input$results$nucleotide), function(d) {
+  input$results$count[which(input$results$nucleotide == d)]
+}))
+
+if (length(unique(input$results$sample)) == 1) {
+  cvr <- t(cvr)
+  counts <- t(counts)
+}
+
+row.names(cvr) <- unique(input$results$sample)
+row.names(counts) <- unique(input$results$sample)
 
 if (is.null(metadata$coldate)) {
   metadata$coldate <- NA 
@@ -43,7 +62,7 @@ if (all(is.na(metadata$site))) {
                      metadata$sample)  
 }
 
-pdf(file=outfile, width=7, height=max(5, nrow(input$counts)/5))
+pdf(file=outfile, width=7, height=max(5, nrow(counts)/5))
 
 n.muts <- apply(cvr, 1, function(x) sum(x>0, na.rm=T))
 pal <- colorRampPalette(c("white", "steelblue"))(ncol(cvr))
