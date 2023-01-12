@@ -61,7 +61,7 @@ for i, row in enumerate(reader):
 
 # output aggregated data
 print("Writing outputs...")
-outfile = open("data/aggregate-mapped.csv", 'w')
+outfile = open("aggregate-mapped.csv", 'w')
 outfile.write("region,year,epiweek,nuc,amino,nsamples,count,coverage\n")
 for region, rdata in data.items():
     for epiweek, edata in rdata.items():

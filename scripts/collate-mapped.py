@@ -63,7 +63,7 @@ for path in paths:
 stdout = subprocess.check_output(['find', '/data/wastewater/results/', '-name', '*.mapped.csv'])
 paths = stdout.split()
 
-outfile = gzip.open("data/collate-mapped.csv.gz", mode='wt')
+outfile = gzip.open("collate-mapped.csv.gz", mode='wt')
 writer = csv.writer(outfile)
 writer.writerow(["lab", "runname", "sample", "coldate", "region", "latitude",
                  "longitude", "label", "mutation", "freq", "coverage"])
