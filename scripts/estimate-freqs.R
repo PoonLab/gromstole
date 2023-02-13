@@ -117,6 +117,14 @@ maps <- lapply(mfiles, function(f) {
   names(pos) <- sites
   
   mapped <- read.csv(f, stringsAsFactors = FALSE)
+  
+  # Handle empty mapped file
+  if (nrow(mapped) == 0) {
+    return(list(counts=NA, 
+         coverage=NA,
+         pos=NA))
+  }
+  
   mapped$type <- substr(mapped$label, 1, 1)
   mapped$pos <- mapped$position+1
   mapped$alt <- sapply(strsplit(mapped$label, as.character(mapped$pos)), 
