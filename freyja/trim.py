@@ -185,19 +185,18 @@ if __name__ == '__main__':
     cb = Callback()
     cb.callback("Starting Script")
 
-    fq1 = args.infile
-    lab = args.lab
-    run = args.run
-    os.makedirs('{}/{}'.format(lab, run), exist_ok=True)
-    outpath = '{}/{}'.format(lab, run)
+    # prepare output directory
+    outpath = '{}/{}'.format(args.lab, args.run)
+    os.makedirs(outpath, exist_ok=True)
 
+    fq1 = args.infile
     cb.callback("Running {}".format(fq1))
     fq2 = fq1.replace('_R1_', '_R2_')  # determine R2 filename
     _ , filename = os.path.split(fq1)
     prefix = filename.split('_')[0]
     
     tf1, tf2 = cutadapt(fq1=fq1, fq2=fq2, ncores=2, path=args.cutadapt)
-    bamsort = minimap2(fq1=tf1, fq2=tf2, ref=args.ref, nthread=4,
+    bamsort = minimap2(fq1=tf1, fq2=tf2, ref=args.ref, nthread=args.threads,
                        path=args.minimap2)
     frey = freyja(bamsort=bamsort, ref=args.ref, sample=prefix, outpath=outpath,
                   path=args.freyja)
