@@ -5,7 +5,8 @@ import sys
 
 class LinParser:
     def __init__(self, alias_file, loi_file):
-        self.alias = self.parse_alias_json(alias_file)
+        self.alias = {}
+        self.parse_alias_json(alias_file)
         self.loi = {}
         with open(loi_file) as handle:
             for line in handle:
@@ -17,15 +18,13 @@ class LinParser:
         """
         Parse PANGO alias_key.json file contents, excluding entries with empty string values.
         :param jsonfile:  str, path to JSON file
-        :return:  dict, resolved lineage names keyed by alias
         """
-        new_alias = {}
+        self.alias = {}  # reset dictionary
         with open(jsonfile, 'r') as handle:
             alias = json.loads(handle.read())
             for k, v in alias.items():
                 if v != '':
-                    new_alias.update({k: v})
-        return new_alias
+                    self.alias.update({k: v})
 
     def parse_lin(self, tsvfile, threshold=0.01):
         """
@@ -35,6 +34,9 @@ class LinParser:
         :param threshold:  float, lineage reporting threshold
         :return:
         """
+        # parse sample name from TSV filename / path
+        sample = os.path.basename(tsvfile).split('.')[1]
+
         lineages, estimates = None, None
         with open(tsvfile) as handle:
             for line in handle:
@@ -58,15 +60,10 @@ class LinParser:
             # TODO: determine match in lineages of interest
             fullname = self.expand_lineage(lname)
             match = self.match_lineage(fullname)
-            results.append({
-                'name': lname,
-                'fullname': fullname,
-                'LOI': match,
-                'frequency': float(est)
-            })
+            results.append({'name': lname, 'LOI': match, 'frequency': float(est)})
 
         # report sum of lineages below threshold
-        results.append({'name': 'other', 'frequency': other})
+        results.append({'sample': sample, 'name': 'other', 'frequency': other})
         return results
 
     def match_lineage(self, fullname):
@@ -128,10 +125,7 @@ if __name__ == '__main__':
     writer = csv.DictWriter(args.outfile,
                             fieldnames=['sample', 'name', 'LOI', 'frequency'])
     writer.writeheader()
-
     for infile in files:
-        sample = os.path.basename(infile).split('.')[1]
         results = parser.parse_lin(infile)
         for row in results:
-            row.update({'sample': sample})
             writer.writerow(row)
