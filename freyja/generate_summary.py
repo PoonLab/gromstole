@@ -71,7 +71,7 @@ class LinParser:
 
     def match_lineage(self, fullname):
         if fullname in self.loi:
-            return fullname
+            return self.loi[fullname]
 
         while '.' in fullname:
             items = fullname.split('.')
