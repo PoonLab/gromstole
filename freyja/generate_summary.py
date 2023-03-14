@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
     # prepare output file
     writer = csv.DictWriter(args.outfile,
-                            fieldnames=['sample', 'name', 'fullname', 'LOI', 'frequency'])
+                            fieldnames=['sample', 'name', 'LOI', 'frequency'])
     writer.writeheader()
 
     for infile in files:
