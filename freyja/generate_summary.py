@@ -60,7 +60,7 @@ class LinParser:
             # TODO: determine match in lineages of interest
             fullname = self.expand_lineage(lname)
             match = self.match_lineage(fullname)
-            results.append({'name': lname, 'LOI': match, 'frequency': float(est)})
+            results.append({'sample': sample, 'name': lname, 'LOI': match, 'frequency': float(est)})
 
         # report sum of lineages below threshold
         results.append({'sample': sample, 'name': 'other', 'frequency': other})
