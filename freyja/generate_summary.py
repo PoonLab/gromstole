@@ -37,6 +37,7 @@ class LinParser:
         # parse sample name from TSV filename / path
         sample = os.path.basename(tsvfile).split('.')[1]
 
+        # parse contents of TSV file
         lineages, estimates = None, None
         with open(tsvfile) as handle:
             for line in handle:
@@ -50,23 +51,29 @@ class LinParser:
             sys.exit()
 
         results = []
-        other = 0.
+        other_freq = 0.
         for lname, est in zip(lineages, estimates):
             freq = float(est)
             if freq < threshold:
-                other += freq
+                other_freq += freq
                 continue
-
-            # TODO: determine match in lineages of interest
+            # look up closest LOI
             fullname = self.expand_lineage(lname)
             match = self.match_lineage(fullname)
-            results.append({'sample': sample, 'name': lname, 'LOI': match, 'frequency': float(est)})
+            results.append({'sample': sample, 'name': lname, 'LOI': match,
+                            'frequency': float(est)})
 
         # report sum of lineages below threshold
-        results.append({'sample': sample, 'name': 'other', 'frequency': other})
+        results.append({'sample': sample, 'name': 'other', 'frequency': other_freq})
         return results
 
     def match_lineage(self, fullname):
+        """
+        Determine most recent "lineage of interest" (LOI) that is ancestral
+        to query lineage.
+        :param fullname:  str, expanded PANGO lineage name
+        :return:  str, abbreviated name of LOI
+        """
         if fullname in self.loi:
             return self.loi[fullname]
 
@@ -87,7 +94,6 @@ class LinParser:
         Use PANGO alias dictionary to resolve lineage names to full format.
         If given a recombinant lineage name, will return the unmodified string.
         :param lname:  str, PANGO lineage name
-        :param alias:  dict, map of PANGO aliases
         :return:  str, resolved name
         """
         prefix = lname.split('.')[0]
@@ -105,8 +111,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Generate summary file"
     )
+
+    # required arguments
     parser.add_argument('path', type=str,
                         help="input, directory containing Freyja outputs (lin.<sample>.tsv)")
+
+    # optional arguments
+    parser.add_argument('-t', '--threshold', type=float, default=0.01,
+                        help="option, minimum frequency to report lineage (defaults to 0.01)")
     parser.add_argument('-o', '--outfile', type=argparse.FileType('w'), default=sys.stdout,
                         help="output, path to write CSV file; defaults to stdout")
     parser.add_argument('--loi', type=str, default="lineages_of_interest.txt",
@@ -126,6 +138,6 @@ if __name__ == '__main__':
                             fieldnames=['sample', 'name', 'LOI', 'frequency'])
     writer.writeheader()
     for infile in files:
-        results = parser.parse_lin(infile)
+        results = parser.parse_lin(infile, threshold=args.threshold)
         for row in results:
             writer.writerow(row)
