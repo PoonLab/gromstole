@@ -133,16 +133,16 @@ def freyja(bamsort, ref, sample, outpath, path='freyja'):
         sys.stderr.write(' '.join(cmd))
         raise
 
-    bootstrap = [path, 'boot', '{}/var.{}.tsv'.format(outpath, sample),
-                 '{}/depth.{}.csv'.format(outpath, sample),
-                 '--nt', '4', '--nb', '10', '--output_base',
-                 '{}/boostrap.{}'.format(outpath, sample), '--boxplot', 'pdf']
-    try:
-        _ = subprocess.check_call(bootstrap)
-    except subprocess.CalledProcessError:
-        sys.stderr.write(f"Error running Freyja boot command:")
-        sys.stderr.write(' '.join(bootstrap))
-        raise
+    # bootstrap = [path, 'boot', '{}/var.{}.tsv'.format(outpath, sample),
+    #              '{}/depth.{}.csv'.format(outpath, sample),
+    #              '--nt', '4', '--nb', '10', '--output_base',
+    #              '{}/boostrap.{}'.format(outpath, sample), '--boxplot', 'pdf']
+    # try:
+    #     _ = subprocess.check_call(bootstrap)
+    # except subprocess.CalledProcessError:
+    #     sys.stderr.write(f"Error running Freyja boot command:")
+    #     sys.stderr.write(' '.join(bootstrap))
+    #     raise
 
     demix = [path, 'demix', '{}/var.{}.tsv'.format(outpath, sample),
              '{}/depth.{}.csv'.format(outpath, sample),
@@ -150,9 +150,9 @@ def freyja(bamsort, ref, sample, outpath, path='freyja'):
     try:
         _ = subprocess.check_call(demix)
     except subprocess.CalledProcessError:
-        sys.stderr.write(f"Error running Freyja demix command:")
+        sys.stderr.write(f"Error running Freyja demix command. Skipping:")
         sys.stderr.write(' '.join(demix))
-        raise
+        return
 
 
 if __name__ == '__main__':
@@ -169,8 +169,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--ref', type=str, default="data/NC_045512.fa",
                         help="<input> path to target FASTA (reference)")
-    parser.add_argument('--barcodes', type=str, default="data/usher_barcodes.csv",
-                        help="<input> path to target FASTA (reference)")
     parser.add_argument('--cutadapt', type=str, default="cutadapt",
                         help="Path to cutadapt")
     parser.add_argument('--minimap2', type=str, default="minimap2",
@@ -185,15 +183,15 @@ if __name__ == '__main__':
     cb = Callback()
     cb.callback("Starting Script")
 
-    # prepare output directory
-    outpath = '{}/{}'.format(args.lab, args.run)
-    os.makedirs(outpath, exist_ok=True)
-
     fq1 = args.infile
     cb.callback("Running {}".format(fq1))
     fq2 = fq1.replace('_R1_', '_R2_')  # determine R2 filename
     _ , filename = os.path.split(fq1)
     prefix = filename.split('_')[0]
+
+    # prepare output directory
+    outpath = '{}/{}/{}'.format(args.lab, args.run, prefix)
+    os.makedirs(outpath, exist_ok=True)
     
     tf1, tf2 = cutadapt(fq1=fq1, fq2=fq2, ncores=2, path=args.cutadapt)
     bamsort = minimap2(fq1=tf1, fq2=tf2, ref=args.ref, nthread=args.threads,
