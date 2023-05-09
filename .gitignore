@@ -13,6 +13,7 @@ results/*
 # Output Files
 data/tile-coords.csv
 *bin
+*.db
 
 # Fasta
 *\.fa

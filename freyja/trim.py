@@ -1,56 +1,44 @@
-import csv
 import subprocess
 import argparse
-import re
 import sys
 import os
 import tempfile
-import pandas as pd
-import glob
+import fnmatch
 from progress_utils import Callback
 
+import smtplib
+from dotenv import dotenv_values
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-def generate_csv(outpath):
+def send_error_notification(message): 
     """
-
-    :param outpath:  str, path to write output TSV files
+    Send an email notification to a user
+    :param message:  str, message to send
     :return:
+    
     """
-    tsvfiles = glob.glob("{}/**/lin.*.tsv".format(outpath), recursive=True)
-    results = {}
-    lineage_set = set()
-    sample_set = set()
-    for tsv in tsvfiles:
-        _ , filename = os.path.split(tsv)
-        sample = filename.split('.')[1]
-        sample_set.add(sample)
-        results.update({sample: {}})
-        result_file = pd.read_csv(tsv, sep='\t', index_col=0).to_dict()
-        values = result_file[list(result_file.keys())[0]]
+    config = dotenv_values(".env")
+    try:
+        server = smtplib.SMTP_SSL(config["HOST"], int(config["PORT"]))
+        server.ehlo()
+        server.login(config["EMAIL_ADDRESS"], config["EMAIL_PASSWORD"])
+    except:
+        sys.stderr.write(f"There was a problem initializing a connection with the server")
+        exit(-1)
 
-        # Empty results file
-        if values['summarized'] == '[]':
-            continue
+    msg = MIMEMultipart("related")
+    msg['Subject'] = "ATTENTION: Error running gromstole pipeline"
+    msg['From'] = "Gromstole Notification <{}>".format(config["EMAIL_ADDRESS"])
+    msg['To'] = config["SEND_TO"]
 
-        for lineage, abundance in zip(values['lineages'].split(), values['abundances'].split()):
-            lineage_set.add(lineage)
-            results[sample].update({lineage: float(abundance)})
-
-    lineages = sorted(list(lineage_set))
-    samples = sorted(list(sample_set))
-
-    df = pd.DataFrame(columns=lineages, index=samples)
-
-    for sample, lineages in results.items():
-        for lineage, abundance in lineages.items():
-            df[lineage][sample] = abundance
-
-    lab, run = outpath.split('/')
-    outfile = '{}-{}'.format(lab, run)
-    df.to_csv('{}/{}.freyja.csv'.format(outpath, outfile), encoding='utf-8')
+    body = '{}\r\n'.format(message)
+    msg.attach(MIMEText(body, 'plain'))
+    server.sendmail(config["EMAIL_ADDRESS"], config["SEND_TO"], msg.as_string())
+    server.quit()
 
 
-def cutadapt(fq1, fq2, path="cutadapt", adapter="AGATCGGAAGAGC", ncores=1, minlen=10):
+def cutadapt(fq1, fq2, path="cutadapt", adapter="AGATCGGAAGAGC", ncores=1, sendemail=False, minlen=10):
     """
     Wrapper for cutadapt
     :param fq1:  str, path to FASTQ R1 file
@@ -64,13 +52,22 @@ def cutadapt(fq1, fq2, path="cutadapt", adapter="AGATCGGAAGAGC", ncores=1, minle
     of2 = tempfile.NamedTemporaryFile('w', delete=False)
     cmd = [path, '-a', adapter, '-A', adapter, '-o', of1.name, '-p', of2.name,
            '-j', str(ncores), '-m', str(minlen), '--quiet', fq1, fq2]
-    _ = subprocess.check_call(cmd)
+    
+    try:
+        _ = subprocess.check_call(cmd)
+    except subprocess.CalledProcessError:
+        sys.stderr.write(f"Error running cutadapt command:\n")
+        sys.stderr.write(f"{' '.join(cmd)}\n")
+        if sendemail:
+            send_error_notification(message='Error running {}'.format(' '.join(cmd)))
+        raise
+
     of1.close()
     of2.close()
     return of1.name, of2.name
 
 
-def minimap2(fq1, fq2, ref, path='minimap2', nthread=1):
+def minimap2(fq1, fq2, ref, path='minimap2', nthread=1, sendemail=False):
     """
     Wrapper for minimap2 for processing paired-end read data.
 
@@ -106,12 +103,14 @@ def minimap2(fq1, fq2, ref, path='minimap2', nthread=1):
             os.remove(tmpfile)
         except FileNotFoundError:
             sys.stderr.write(f"Failed to remove file {tmpfile}, file not found")
+            if sendemail:
+                send_error_notification(message='Check logs. Could not locate temporary file')
             raise
 
     return tempbamsort.name 
 
 
-def freyja(bamsort, ref, sample, outpath, path='freyja'):
+def freyja(bamsort, ref, sample, outpath, email=None, path='freyja', sendemail=False):
     """
     Wrapper function for andersen-lab/Freyja
 
@@ -126,13 +125,18 @@ def freyja(bamsort, ref, sample, outpath, path='freyja'):
     try:
         _ = subprocess.check_call(cmd)
     except FileNotFoundError:
-        sys.stderr.write(f"Failed to find executable file at {path}")
+        sys.stderr.write(f"Failed to find executable file at {path}\n")
+        if sendemail:
+            send_error_notification(message='Check error logs. Could not find {}'.format(path))
         raise
     except subprocess.CalledProcessError:
-        sys.stderr.write(f"Error running Freyja variants command:")
-        sys.stderr.write(' '.join(cmd))
+        sys.stderr.write(f"Error running Freyja variants command:\n")
+        sys.stderr.write(f"{' '.join(cmd)}\n")
+        if sendemail:
+            send_error_notification(message='Error running {}'.format(' '.join(cmd)))
         raise
 
+    # NOTE: Temporarily disabiling Bootstrap step
     # bootstrap = [path, 'boot', '{}/var.{}.tsv'.format(outpath, sample),
     #              '{}/depth.{}.csv'.format(outpath, sample),
     #              '--nt', '4', '--nb', '10', '--output_base',
@@ -147,12 +151,40 @@ def freyja(bamsort, ref, sample, outpath, path='freyja'):
     demix = [path, 'demix', '{}/var.{}.tsv'.format(outpath, sample),
              '{}/depth.{}.csv'.format(outpath, sample),
              '--output', '{}/lin.{}.tsv'.format(outpath, sample)]
-    try:
-        _ = subprocess.check_call(demix)
-    except subprocess.CalledProcessError:
-        sys.stderr.write(f"Error running Freyja demix command. Skipping:")
-        sys.stderr.write(' '.join(demix))
-        return
+
+    p = subprocess.Popen(demix, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    _, error = p.communicate()
+
+    if p.returncode != 0: 
+        if b'cvxpy.error.SolverError' in error:
+            sys.stderr.write(f"cvxpy.error.SolverError when running Freyja demix. Check coverage - ")
+            sys.stderr.write(f"{' '.join(demix)}\n")
+        else:
+            if sendemail:
+                send_error_notification(message="Error running {}".format(' '.join(demix)))
+            sys.stderr.write(f"Error running Freyja demix command - ")
+            sys.stderr.write(f"{' '.join(demix)}\n")
+            raise Exception(f"Subprocess failed with return code {p.returncode} when running {' '.join(demix)}")
+
+    p.stdout.close()
+    p.kill()
+
+    return True if p.returncode != 0 else False
+
+
+def rename_file(filepath):
+    """
+    Rename a file to include a checksum of the file contents
+
+    :param filepath:  str, path to file to rename
+    :return:  str, path to renamed file
+    """
+
+    filename = os.path.basename(filepath)
+    stdout = subprocess.getoutput("sha1sum {}".format(filepath))
+    checksum = stdout.split(' ')[0][:10]
+    filename_toks = filename.split('.')
+    return filepath.replace(filename, '{}.{}.{}'.format('.'.join(filename_toks[:-1]), checksum,filename_toks[-1]))
 
 
 if __name__ == '__main__':
@@ -160,15 +192,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Run Freyja Pipeline"
     )
-    parser.add_argument('infile', type=str,
-                        help="Path to the R1 FASTQ file of the sample")
-    parser.add_argument('lab', type=str, default="freyja",
-                        help="Name of the lab (western/guelph/waterloo)")
-    parser.add_argument('run', type=str, default="freyja",
-                        help="Name of the run that the sample belongs to")
-
+    parser.add_argument('paths', type=argparse.FileType('r'),
+                        help="Path to file with list of files to process")
+    parser.add_argument('outfile', type=argparse.FileType('w'),
+                        help="Path to file to write processed files")
+    parser.add_argument('--outdir', type=str, default="/home/wastewater/results/freyja",
+                        help="Path to the results directory")
+    parser.add_argument('--indir', type=str, default="/home/wastewater/uploads",
+                        help="Path to the uploads directory")
     parser.add_argument('--ref', type=str, default="data/NC_045512.fa",
                         help="<input> path to target FASTA (reference)")
+    parser.add_argument('--sendemail', dest='sendemail', action="store_true",
+                        help="<option> send email notification when there is an error") 
     parser.add_argument('--cutadapt', type=str, default="cutadapt",
                         help="Path to cutadapt")
     parser.add_argument('--minimap2', type=str, default="minimap2",
@@ -177,37 +212,99 @@ if __name__ == '__main__':
                         help="Path to Freyja")
     parser.add_argument('--threads', type=int, default=4,
                         help="Number of threads (default 4)")
+    parser.set_defaults(sendemail=False)
 
     args = parser.parse_args()
 
     cb = Callback()
     cb.callback("Starting Script")
 
-    fq1 = args.infile
-    cb.callback("Running {}".format(fq1))
-    fq2 = fq1.replace('_R1_', '_R2_')  # determine R2 filename
-    _ , filename = os.path.split(fq1)
-    prefix = filename.split('_')[0]
-
-    # prepare output directory
-    outpath = '{}/{}/{}'.format(args.lab, args.run, prefix)
-    os.makedirs(outpath, exist_ok=True)
+    try:
+        from mpi4py import MPI
+    except ModuleNotFoundError:
+        print("Script requires mpi4py - https://pypi.org/project/mpi4py/")
+        sys.exit()
     
-    tf1, tf2 = cutadapt(fq1=fq1, fq2=fq2, ncores=2, path=args.cutadapt)
-    bamsort = minimap2(fq1=tf1, fq2=tf2, ref=args.ref, nthread=args.threads,
-                       path=args.minimap2)
-    frey = freyja(bamsort=bamsort, ref=args.ref, sample=prefix, outpath=outpath,
-                  path=args.freyja)
+    args.indir = os.path.normpath(args.indir)
+    args.outdir = os.path.normpath(args.outdir)
 
-    # Remove cutadapt output temporary files
-    for tmpfile in [tf1, tf2, bamsort]:
-        cb.callback("Removing {}".format(tmpfile))
-        try:
-            os.remove(tmpfile)
-        except FileNotFoundError:
-            pass
-            
-    # cb.callback("Generating CSV for {}".format('/'.join(outpath)))
-    # generate_csv(outpath)
+    comm = MPI.COMM_WORLD
+    my_rank = comm.Get_rank()
+    nprocs = comm.Get_size()
+
+    r1_paths = []
+    # with open(args.paths, 'r') as handle:
+    for line in args.paths:
+        r1_paths.append(os.path.normpath(line.strip()))
     
-    cb.callback("All done")
+    error_messages = []
+    records = []
+    for num, r1 in enumerate(r1_paths):
+        if num % nprocs != my_rank:
+            continue
+        
+        r2 = r1.replace('_R1_', '_R2_')
+
+        # ignore files that don't have an R2 file
+        if not os.path.exists(r2):
+            sys.stderr.write(f"Missing R2 file for {r1}\n")
+            send_error_notification("Missing R2 file for {}".format(r1))
+            continue
+
+        path, filename = os.path.split(r1)
+        prefix = filename.split('_')[0]
+
+        # os.makedirs(os.path.join(os.getcwd(), "results"), exist_ok=True)
+
+        cb.callback("starting {} from {}".format(prefix, path))
+
+        result_dir = os.path.join(args.outdir + path.split(args.indir)[1], prefix)
+        # local_results_dir = os.path.join("results" + path.split(args.indir)[1], prefix)
+        # os.makedirs(local_results_dir, exist_ok=True)
+        os.makedirs(result_dir, exist_ok=True)
+
+        # Check to see if the results directory has freyja run data
+        if len(fnmatch.filter(os.listdir(result_dir), '*.*')) > 0:
+            continue
+
+        tf1, tf2 = cutadapt(fq1=r1, fq2=r2, ncores=2, path=args.cutadapt, sendemail=args.sendemail)
+        bamsort = minimap2(fq1=tf1, fq2=tf2, ref=args.ref, nthread=args.threads,
+                            path=args.minimap2, sendemail=args.sendemail)
+        res = freyja(bamsort=bamsort, ref=args.ref, sample=prefix, outpath=result_dir,
+                    path=args.freyja, sendemail=args.sendemail)
+        
+        # cvxpy error
+        if res:
+            error_messages.append(result_dir)
+
+        # Remove cutadapt output temporary files
+        for tmpfile in [tf1, tf2, bamsort]:
+            cb.callback("Removing {}".format(tmpfile))
+            try:
+                os.remove(tmpfile)
+            except FileNotFoundError:
+                pass
+
+        # Rename files with checksum and move to the output directory
+        for f in os.listdir(result_dir):
+            current_filepath = os.path.join(result_dir, f)
+            new_filepath = rename_file(current_filepath)
+            os.rename(current_filepath, new_filepath)
+
+        records.append(r1)
+        records.append(r2)
+
+
+    comm.Barrier()
+    all_records = comm.gather(records, root=0)
+    all_errors = comm.gather(error_messages, root=0)
+
+    if my_rank == 0: 
+        gather_records = [r for record in all_records for r in record]
+        gather_errors = [e for errs in all_errors for e in errs]
+        for err in gather_errors:
+            sys.stderr.write(f"cvxpy error running Freyja demix command - {err} \n")
+
+        for rec in gather_records:
+            args.outfile.write(f"{rec}\n")
+    

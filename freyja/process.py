@@ -1,21 +1,20 @@
-from datetime import datetime
+from datetime import date, datetime
 from progress_utils import Callback
-from trim import cutadapt, minimap2, freyja
+from csv import DictWriter, DictReader
 import sqlite3
 import argparse
-import shutil
-import re
 import os
 import glob
 import subprocess
 import sys
+import tempfile
+import requests
+import pandas as pd
+import json
 
-import smtplib
-from dotenv import dotenv_values
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from trim import send_error_notification, rename_file
+from generate_summary import LinParser
 
-error_msgs = []
 
 def open_connection(database, callback=None):
     """
@@ -49,7 +48,7 @@ def insert_record(curr, filepath):
     :param filepath: str, path to the file
     :return: None
     """
-    path, file = os.path.split(filepath)
+    path, _ = os.path.split(filepath)
 
     # Get creation date
     file_timestamp = os.path.getmtime(filepath)
@@ -160,78 +159,136 @@ def contains_run(run, usr_list):
     return False
 
 
-def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutadapt", fbin="freyja", threads=4, ref="data/NC_045512.fa", callback=None):
+def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, indir, outdir, callback=None):
     """
-    Process new R1 and R2 data files and copy output files to the results directory
+    Summarize all sample data for the run into a single JSON file
 
-    :param curr: object, cursor object
-    :param indir: str, path to the uploads directory where all the FASTAQ data files are location
-    :param outdir: str, path to the results directory
-    :param paths: list, paths to all the new files that need to be processed
-    :param binpath: str, path to the minimap2 binary executable
-    :param cutabin: str, path to the cutadapt binary executable
-    :param fbin: str, path to the freyja binary executable
-    :param threads: int, number of threads to run minimap2
-    :param ref: str, path to the reference sequence
+    :param usher_barcodes: str, path to the usher barcodes file
+    :param update_barcodes: bool, option to update the usher barcodes file
+    :param freyja_update: date, date when freyja was last
+    :param path: str, path to the run
+    :param indir: str, path to the input directory
+    :param outdir: str, path to the output directory
     :param callback: function, option to print messages to the console
-    :return: None
     """
 
-    ignore = []
-    for r1 in paths:
-        r2 = r1.replace('_R1_', '_R2_')
+    if update_barcodes or not os.path.isfile(usher_barcodes):
+        callback("Downloading usher barcodes...")
+        url = 'https://raw.githubusercontent.com/andersen-lab/Freyja/main/freyja/data/usher_barcodes.csv'
+        request = requests.get(url, allow_redirects=True)
+        usher_barcodes = 'data/usher_barcodes.csv'
+        with open(usher_barcodes, 'wb') as file:
+            file.write(request.content)    
+        
+    summarized_output = {'lineagesOfInterest' : {}}
+    metadata_list = []
+    meta_file = None
 
-        # ignore files that don't have an R2 file
-        if not os.path.exists(r2):
-            ignore.append(r1)
+    lab, run = path.split(os.path.sep)[-2:]
+
+    # Look for metadata
+    metadata_file = glob.glob(os.path.join(path, '*metadata*'))
+    if len(metadata_file) != 0:
+        try: 
+            meta_file = pd.read_csv(metadata_file[0], index_col = 0)
+        except:
+            sys.stderr.write(f"Unable to read metadata from {path}")        
+
+    
+	# read barcode data, for each VOC extract columns that have mutaion
+    barcode = pd.read_csv(usher_barcodes, index_col = 0)
+    muts = barcode.apply(lambda x: x.index[x == 1].tolist(), axis=1)
+    
+    results_dir = path.replace(indir, outdir)
+
+    # Assumes all samples have an individual folder with its freyja output files
+    samples = [os.path.split(x[0])[1] for x in os.walk(results_dir) if x[0] is not results_dir]
+
+    for sample in samples:
+        if sample == "Undetermined":
+            callback("Ignoring Undetermined...")
             continue
 
-        path, filename = os.path.split(r1)
-        prefix = filename.split('_')[0]
+		# Read in the csv generated from generate_summary to get the lineages 
+        csv_summary_file = glob.glob("{}/{}/**/*.freyja.*csv".format(results_dir, sample), recursive=True)
+        csv_summary = {}
 
-        os.makedirs(os.path.join(os.getcwd(), "results"), exist_ok=True)
+        # Some samples won't have a summary file because of the cvxpy error
+        if len(csv_summary_file) == 0:
+            continue
 
-        if callback:
-            callback("starting {} from {}".format(prefix, path))
+        with open (csv_summary_file[0], 'r') as csvfile:
+            reader = DictReader(csvfile)
+            csv_summary = {row['name']: {'loi': row['LOI'], 'frequency': float(row['frequency'])} for row in reader}
 
-        result_dir = os.path.join(outdir + path.split(indir)[1], prefix)
-        local_results_dir = os.path.join("results" + path.split(indir)[1], prefix)
-        os.makedirs(local_results_dir, exist_ok=True)
-        os.makedirs(result_dir, exist_ok=True)
+        variants = [row_key for row_key in csv_summary.keys() if row_key != 'minor']
+    
+        # Get the var filename
+        varfiles = glob.glob("{}/{}/**/var*.tsv".format(results_dir, sample), recursive=True)
 
-        tf1, tf2 = cutadapt(fq1=r1, fq2=r2, ncores=2, path=cutabin)
-        bamsort = minimap2(fq1=tf1, fq2=tf2, ref=ref, nthread=threads,
-                            path=binpath)
-        frey = freyja(bamsort=bamsort, ref=ref, sample=prefix, outpath=local_results_dir,
-                        path=fbin)
+        if len(varfiles) == 0:
+            send_error_notification(message="Freyja did not process results for {} sample {}".format(results_dir, sample))
 
-        # Remove cutadapt output temporary files
-        for tmpfile in [tf1, tf2, bamsort]:
-            cb.callback("Removing {}".format(tmpfile))
-            try:
-                os.remove(tmpfile)
-            except FileNotFoundError:
-                pass
+        var = pd.read_csv(varfiles[0], sep='\t')
+        var['MUT'], var['SAM'] = var.apply(lambda row: row['REF'] + str(row['POS']) + row['ALT'], axis=1), sample
+        var = var[['SAM', 'ALT_AA', 'MUT', 'ALT_DP', 'TOTAL_DP']]
+        var.columns = ['sample', 'mutation', 'nucleotide', 'count', 'coverage']
+        var = var.fillna('')
+
+        for variant in variants:
+            tab = var[var['nucleotide'].isin(muts[variant])]
+            tab = tab.reset_index(drop = True)
+			
+            # create more dictionaries
+            results = tab.to_dict(orient='index')
+            
+            if csv_summary[variant]['loi'] not in summarized_output['lineagesOfInterest']:
+                summarized_output['lineagesOfInterest'].update({csv_summary[variant]['loi']: {}})
+			
+            if sample not in summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']]:
+                summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']].update({sample: {}})
+                
+            if variant not in summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample]:
+                summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample].update({variant: {'mutInfo': [], 'estimate': {}}})
+                
+            summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample][variant]['estimate'].update({'est': csv_summary[variant]['frequency'], 'lower.95': '', 'upper.95': '', '__row': sample})
+            
+            for _, record in results.items():
+                summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample][variant]['mutInfo'].append(record)
+
+        # Handle 'minor' lineages
+        if 'minor' in csv_summary and csv_summary['minor']['frequency'] != 0:
+            if csv_summary['minor']['loi'] not in summarized_output['lineagesOfInterest']:
+                summarized_output['lineagesOfInterest'].update({csv_summary['minor']['loi']: {}})
+                
+            if sample not in summarized_output['lineagesOfInterest'][csv_summary['minor']['loi']]:
+                summarized_output['lineagesOfInterest'][csv_summary['minor']['loi']].update({sample: {csv_summary['minor']['loi']: {'estimate': {}}}})
+                
+            summarized_output['lineagesOfInterest'][csv_summary['minor']['loi']][sample][csv_summary['minor']['loi']]['estimate'].update({'est': csv_summary['minor']['frequency'], 'lower.95': '', 'upper.95': '', '__row': sample})
         
-        # Rename files with checksum and move to the output directory
-        for f in os.listdir(local_results_dir):
-            current_filepath = os.path.join(local_results_dir, f)
-            stdout = subprocess.getoutput("sha1sum {}".format(current_filepath))
-            checksum = stdout.split(' ')[0][:10]
-            filename_toks = f.split('.')
-            new_filename = '{}.{}.{}'.format('.'.join(filename_toks[:-1]), checksum,filename_toks[-1])
-            new_filepath = os.path.join(local_results_dir, new_filename)
-            os.rename(current_filepath, new_filepath)
-            shutil.copy(new_filepath, result_dir)
+		# Update metadata
+        if meta_file is not None:
+			# Ignore metadata record if sample cannot be found in the metadata file
+            try: 
+                site = meta_file.filter(regex="location\sname*")
+                date = meta_file.filter(regex="collection\sdate")
+                metadata = {'sample': sample, 'lab': lab, 'coldate': date.loc[sample, date.columns.tolist()[0]], 'site': site.loc[sample, site.columns.tolist()[0]]}
+                metadata_list.append(metadata)
+            except KeyError:
+                sys.stderr.write(f"Error: Metadata for sample {sample} from {path} couldn't be found in the metadata file")        
 
-        # Insert file data to the database
-        insert_record(curr, r1)
-        insert_record(curr, r2)
+    if meta_file is not None:
+        summarized_output.update({'metadata': metadata_list})
 
-    if len(ignore) > 0 and callback:
-        callback("Ignoring {} files without an R2 pair".format(len(ignore)))
-        for f in ignore:
-            callback("\t {}".format(f), level="DEBUG")
+    summarized_output.update({'run.dir': [run], 'freyja.last.updated': [freyja_update.strftime('%Y-%m-%d')]})
+
+    freyja_json = os.path.join(results_dir, "{}-{}.json".format(lab, run))
+    with open(freyja_json, 'w') as outfile:
+        json_output = json.dumps(summarized_output, indent = 2)
+        outfile.write(json_output)
+    
+    # Rename json file
+    os.rename(freyja_json, rename_file(freyja_json))
 
 
 def parse_args():
@@ -243,29 +300,47 @@ def parse_args():
                         help="Path to the database")
     parser.add_argument('--indir', type=str, default="/home/wastewater/uploads",
                         help="Path to the uploads directory")
-    parser.add_argument('--outdir', type=str, default="/home/wastewater/results",
+    parser.add_argument('--outdir', type=str, default="/home/wastewater/results/freyja",
                         help="Path to the results directory")
     parser.add_argument('-i', '--ignore-list', nargs="*", default=[],
                         help="Directories to ignore or keywords to ignore in the filename")
+    parser.add_argument('--freyjaupdate', dest="freyja_update", type=lambda d: datetime.strptime(d, '%Y-%m-%d').date(), default=date.today(),
+	                    help="<option>Date freyja update was last run. Default is today's date")
+
     parser.add_argument('--minimap2', type=str, default='minimap2',
                         help="<option> path to minimap2 executable")
     parser.add_argument('--cutadapt', type=str, default='cutadapt',
                         help="<option> path to cutadapt executable")
     parser.add_argument('--freyja', type=str, default="freyja",
                         help="<option> path to freyja executable")
+
     parser.add_argument('--threads', type=int, default=4,
                         help="Number of threads (default 4) for minimap2")
-    parser.add_argument('-e', '--email', type=str, default=None,
-                        help="<option> recipient email address to send error messages")                        
+    parser.add_argument('--np', type=int, default=4,
+                        help="Number of processes (default 4) to process FASTQ data files")
+    parser.add_argument('-t', '--threshold', type=float, default=0.01,
+                        help="option, minimum frequency to report lineage (defaults to 0.01)")
+
+    parser.add_argument('--loi', type=str, default="lineages_of_interest.txt",
+                        help="input, path to text file listing lineages of interest")
+    parser.add_argument('--alias', type=str, default="data/alias_key.json",
+                        help="<input> PANGO aliases")
+    parser.add_argument('--barcodes', type=str, default="data/usher_barcodes.csv",
+                        help="<input> USHER Barcodes")
+
+    parser.add_argument('--sendemail', dest='sendemail', action="store_true",
+                        help="<option> send email notification when there is an error")                       
     parser.add_argument('--check', dest='check', action='store_true',
                         help="Check processed files to see if the files have changed since last processing them")
     parser.add_argument('--replace', dest='replace', action='store_false',
                         help="Remove previous result files")
+    parser.add_argument('--updatebarcodes', dest='update_barcodes', action='store_true',
+                        help="<option>Force update the usher barcodes file")
     parser.add_argument('--rerun', dest='rerun', action='store_true',
                         help="Process result files again (generate JSON, csv and barplots again)")
     parser.add_argument('--runs', nargs="*", default=[],
                         help="Runs to process again")
-    parser.set_defaults(check=False, replace=True, rerun=False)
+    parser.set_defaults(check=False, replace=True, rerun=False, sendemail=False, update_barcodes=False)
 
     return parser.parse_args()
 
@@ -275,6 +350,9 @@ if __name__ == '__main__':
     args = parse_args()
     cb.callback("Starting script")
 
+    args.indir = os.path.normpath(args.indir)
+    args.outdir = os.path.normpath(args.outdir)
+
     files = glob.glob("{}/**/*_R1_*.fastq.gz".format(args.indir), recursive=True)
 
     if args.rerun:
@@ -282,35 +360,89 @@ if __name__ == '__main__':
     else:
         cursor, connection = open_connection(args.db, callback=cb.callback)
         new_files, runs = get_files(cursor, files, args.ignore_list, args.check, callback=cb.callback)
-        process_files(cursor, args.indir, args.outdir, new_files, binpath=args.minimap2, cutabin=args.cutadapt,
-                      callback=cb.callback)
+
+        # Write the paths to a temporary file
+        paths = tempfile.NamedTemporaryFile('w', delete=False)
+        for file_path in new_files:
+            paths.write('{}\n'.format(file_path))
+        paths.close()
+
+        # Temporary files to track which files were processed
+        processed_files = tempfile.NamedTemporaryFile('w', delete=False)
+        processed_files.close()
+
+
+        if len(new_files) < args.np:
+            args.np = len(new_files)
+
+        cmd = ["mpirun", "-np", str(args.np), 
+               "python3", "trim.py", paths.name, processed_files.name, 
+               "--freyja", args.freyja,
+               "--minimap2", args.minimap2,
+               "--cutadapt", args.cutadapt,
+                "--outdir", args.outdir, 
+                "--indir", args.indir]
+        
+        if args.sendemail:
+            cmd.append("--sendemail")
+        
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError:
+            sys.stderr.write(f"Error running {' '.join(cmd)}\n")
+
+        # processed = []
+        unique_samples = set()
+        runs = set()
+
+        # Update database with processed records
+        with open(processed_files.name, 'r') as handle:
+            for f in handle:
+                filepath = f.strip()
+                insert_record(cursor, filepath)
+                processed_path = os.path.normpath(filepath)
+                basepath, sample = os.path.split(processed_path)
+                lab, run = basepath.split(os.path.sep)[-2:]
+                sname = sample.split('_')[0]
+                unique_samples.add(os.path.join(args.outdir, lab, run, sname))
+                runs.add(basepath)
+                
+        # Generate the summary freyja csv files for each sample
+        cb.callback("Generating Freyja CSV Files")
+        parser = LinParser(args.alias, args.loi)
+        for processed_path in unique_samples:
+            files = glob.glob(os.path.join(processed_path, "lin.*.tsv"))
+            if not files:
+                sys.stderr.write(f"ERROR: Directory {processed_path} does not contain any files matching lin.*.tsv\n")
+                continue
+
+            # prepare output file
+            lab, run, sample = processed_path.split(os.path.sep)[-3:]
+            freyja_csv = '{}/{}-{}.freyja.csv'.format(processed_path, lab, sample)
+            with open(freyja_csv, 'w') as outfile:
+                writer = DictWriter(outfile,
+                                        fieldnames=['sample', 'name', 'LOI', 'frequency'])
+                writer.writeheader()
+                for infile in files:
+                    results = parser.parse_lin(infile, threshold=args.threshold)
+                    for row in results:
+                        writer.writerow(row)
+
+            # Rename file with sha1sum hash
+            cb.callback(freyja_csv)
+            os.rename(freyja_csv, rename_file(freyja_csv))
+
+        # Generate the json file for each run
+        cb.callback("Generating Freyja JSON Files")
+        for run in runs:
+            summarize_run_data(args.barcodes, args.update_barcodes, args.freyja_update, run, args.indir, args.outdir, callback=cb.callback)
+
+
+        os.unlink(paths.name)
+        os.unlink(processed_files.name)
+
         connection.commit()
         connection.close()  
-
-    # Generate result files
-    # run_scripts(runs, args.indir, args.outdir, args.replace, callback=cb.callback)
-
-    if len(error_msgs) > 0 and args.email is not None:
-        cb.callback("Sending error message")
-
-        config = dotenv_values(".env")
-        try:
-            server = smtplib.SMTP_SSL(config["HOST"], int(config["PORT"]))
-            server.ehlo()
-            server.login(config["EMAIL_ADDRESS"], config["EMAIL_PASSWORD"])
-        except:
-            cb.callback("There was a problem initializing a connection with the server")
-            exit(-1)
-
-        msg = MIMEMultipart("related")
-        msg['Subject'] = "ATTENTION: Error running gromstole pipeline"
-        msg['From'] = "Gromstole Notification <{}>".format(config["EMAIL_ADDRESS"])
-        msg['To'] = args.email
-
-        body = '\r\n'.join(error_msgs)
-        msg.attach(MIMEText(body, 'plain'))
-        server.sendmail(config["EMAIL_ADDRESS"], args.email, msg.as_string())
-        server.quit()
     
     if not args.rerun and len(new_files) == 0:
         cb.callback("No new data files")

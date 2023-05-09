@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import os
 
 
 class LinParser:
@@ -64,7 +65,7 @@ class LinParser:
                             'frequency': float(est)})
 
         # report sum of lineages below threshold
-        results.append({'sample': sample, 'name': 'other', 'frequency': other_freq})
+        results.append({'sample': sample, 'name': 'minor', 'frequency': other_freq, 'LOI': 'minor'})
         return results
 
     def match_lineage(self, fullname):
@@ -105,7 +106,6 @@ class LinParser:
 
 if __name__ == '__main__':
     import csv
-    import os
     from glob import glob
 
     parser = argparse.ArgumentParser(
