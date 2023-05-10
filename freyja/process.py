@@ -221,7 +221,7 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
             reader = DictReader(csvfile)
             csv_summary = {row['name']: {'loi': row['LOI'], 'frequency': float(row['frequency'])} for row in reader}
 
-        variants = [row_key for row_key in csv_summary.keys() if row_key != 'minor']
+        variants = [row_key for row_key in csv_summary.keys() if row_key != 'minor' and row_key != 'NA']
     
         # Get the var filename
         varfiles = glob.glob("{}/{}/**/var*.tsv".format(results_dir, sample), recursive=True)
@@ -256,16 +256,17 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
             for _, record in results.items():
                 summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample][variant]['mutInfo'].append(record)
 
-        # Handle 'minor' lineages
-        if 'minor' in csv_summary and csv_summary['minor']['frequency'] != 0:
-            if csv_summary['minor']['loi'] not in summarized_output['lineagesOfInterest']:
-                summarized_output['lineagesOfInterest'].update({csv_summary['minor']['loi']: {}})
-                
-            if sample not in summarized_output['lineagesOfInterest'][csv_summary['minor']['loi']]:
-                summarized_output['lineagesOfInterest'][csv_summary['minor']['loi']].update({sample: {csv_summary['minor']['loi']: {'estimate': {}}}})
-                
-            summarized_output['lineagesOfInterest'][csv_summary['minor']['loi']][sample][csv_summary['minor']['loi']]['estimate'].update({'est': csv_summary['minor']['frequency'], 'lower.95': '', 'upper.95': '', '__row': sample})
-        
+        # Handle 'minor' lineages and samples that had an error due to low coverage
+        for lin in ['minor', 'NA']:
+            if lin in csv_summary and csv_summary[lin]['frequency'] != 0:
+                if csv_summary[lin]['loi'] not in summarized_output['lineagesOfInterest']:
+                    summarized_output['lineagesOfInterest'].update({csv_summary[lin]['loi']: {}})
+                    
+                if sample not in summarized_output['lineagesOfInterest'][csv_summary[lin]['loi']]:
+                    summarized_output['lineagesOfInterest'][csv_summary[lin]['loi']].update({sample: {csv_summary[lin]['loi']: {'estimate': {}}}})
+                    
+                summarized_output['lineagesOfInterest'][csv_summary[lin]['loi']][sample][csv_summary[lin]['loi']]['estimate'].update({'est': csv_summary[lin]['frequency'], 'lower.95': '', 'upper.95': '', '__row': sample})       
+
 		# Update metadata
         if meta_file is not None:
 			# Ignore metadata record if sample cannot be found in the metadata file
@@ -412,9 +413,6 @@ if __name__ == '__main__':
         parser = LinParser(args.alias, args.loi)
         for processed_path in unique_samples:
             files = glob.glob(os.path.join(processed_path, "lin.*.tsv"))
-            if not files:
-                sys.stderr.write(f"ERROR: Directory {processed_path} does not contain any files matching lin.*.tsv\n")
-                continue
 
             # prepare output file
             lab, run, sample = processed_path.split(os.path.sep)[-3:]
@@ -423,13 +421,19 @@ if __name__ == '__main__':
                 writer = DictWriter(outfile,
                                         fieldnames=['sample', 'name', 'LOI', 'frequency'])
                 writer.writeheader()
-                for infile in files:
-                    results = parser.parse_lin(infile, threshold=args.threshold)
-                    for row in results:
-                        writer.writerow(row)
+                if not files:
+                    sys.stderr.write(f"ERROR: Directory {processed_path} does not contain any files matching lin.*.tsv\n")
+                    # Creating a summary file giving the sample a frequency of -1000 to indicate that the coverage of the sample needs to be reviewed
+                    results = {'sample': sample, 'name': 'NA', 'LOI': 'NA',
+                               'frequency': -1000}
+                    writer.writerow(results)
+                else:
+                    for infile in files:
+                        results = parser.parse_lin(infile, threshold=args.threshold)
+                        for row in results:
+                            writer.writerow(row)
 
             # Rename file with sha1sum hash
-            cb.callback(freyja_csv)
             os.rename(freyja_csv, rename_file(freyja_csv))
 
         # Generate the json file for each run
