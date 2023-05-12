@@ -11,6 +11,7 @@ import tempfile
 import requests
 import pandas as pd
 import json
+from math import isnan
 
 from trim import send_error_notification, rename_file
 from generate_summary import LinParser
@@ -172,6 +173,9 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
     :param callback: function, option to print messages to the console
     """
 
+    if callback:
+        callback(path)
+
     if update_barcodes or not os.path.isfile(usher_barcodes):
         callback("Downloading usher barcodes...")
         url = 'https://raw.githubusercontent.com/andersen-lab/Freyja/main/freyja/data/usher_barcodes.csv'
@@ -205,6 +209,9 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
     samples = [os.path.split(x[0])[1] for x in os.walk(results_dir) if x[0] is not results_dir]
 
     for sample in samples:
+        if callback:
+            callback(sample)
+
         if sample == "Undetermined":
             callback("Ignoring Undetermined...")
             continue
@@ -229,32 +236,33 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
         if len(varfiles) == 0:
             send_error_notification(message="Freyja did not process results for {} sample {}".format(results_dir, sample))
 
-        var = pd.read_csv(varfiles[0], sep='\t')
-        var['MUT'], var['SAM'] = var.apply(lambda row: row['REF'] + str(row['POS']) + row['ALT'], axis=1), sample
-        var = var[['SAM', 'ALT_AA', 'MUT', 'ALT_DP', 'TOTAL_DP']]
-        var.columns = ['sample', 'mutation', 'nucleotide', 'count', 'coverage']
-        var = var.fillna('')
+        if len(variants) > 0:
+            var = pd.read_csv(varfiles[0], sep='\t')
+            var['MUT'], var['SAM'] = var.apply(lambda row: row['REF'] + str(row['POS']) + row['ALT'], axis=1), sample
+            var = var[['SAM', 'ALT_AA', 'MUT', 'ALT_DP', 'TOTAL_DP']]
+            var.columns = ['sample', 'mutation', 'nucleotide', 'count', 'coverage']
+            var = var.fillna('')
 
-        for variant in variants:
-            tab = var[var['nucleotide'].isin(muts[variant])]
-            tab = tab.reset_index(drop = True)
-			
-            # create more dictionaries
-            results = tab.to_dict(orient='index')
-            
-            if csv_summary[variant]['loi'] not in summarized_output['lineagesOfInterest']:
-                summarized_output['lineagesOfInterest'].update({csv_summary[variant]['loi']: {}})
-			
-            if sample not in summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']]:
-                summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']].update({sample: {}})
+            for variant in variants:
+                tab = var[var['nucleotide'].isin(muts[variant])]
+                tab = tab.reset_index(drop = True)
                 
-            if variant not in summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample]:
-                summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample].update({variant: {'mutInfo': [], 'estimate': {}}})
+                # create more dictionaries
+                results = tab.to_dict(orient='index')
                 
-            summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample][variant]['estimate'].update({'est': csv_summary[variant]['frequency'], 'lower.95': '', 'upper.95': '', '__row': sample})
-            
-            for _, record in results.items():
-                summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample][variant]['mutInfo'].append(record)
+                if csv_summary[variant]['loi'] not in summarized_output['lineagesOfInterest']:
+                    summarized_output['lineagesOfInterest'].update({csv_summary[variant]['loi']: {}})
+                
+                if sample not in summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']]:
+                    summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']].update({sample: {}})
+                    
+                if variant not in summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample]:
+                    summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample].update({variant: {'mutInfo': [], 'estimate': {}}})
+                    
+                summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample][variant]['estimate'].update({'est': csv_summary[variant]['frequency'], 'lower.95': '', 'upper.95': '', '__row': sample})
+                
+                for _, record in results.items():
+                    summarized_output['lineagesOfInterest'][csv_summary[variant]['loi']][sample][variant]['mutInfo'].append(record)
 
         # Handle 'minor' lineages and samples that had an error due to low coverage
         for lin in ['minor', 'NA']:
@@ -273,10 +281,29 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
             try: 
                 site = meta_file.filter(regex="location\sname*")
                 date = meta_file.filter(regex="collection\sdate")
-                metadata = {'sample': sample, 'lab': lab, 'coldate': date.loc[sample, date.columns.tolist()[0]], 'site': site.loc[sample, site.columns.tolist()[0]]}
+                # Check if date is NaN
+                try:
+                    if isnan(date.loc[sample, date.columns.tolist()[0]]):
+                        dt = ''
+                except TypeError:
+                    if type(date.loc[sample, date.columns.tolist()[0]]) is not str:
+                        dt = date.loc[sample, date.columns.tolist()[0]][0]
+                    else:
+                        dt = date.loc[sample, date.columns.tolist()[0]]
+                
+                try:
+                    if isnan(site.loc[sample, site.columns.tolist()[0]]):
+                        st = ''
+                except TypeError:
+                    if type(site.loc[sample, site.columns.tolist()[0]]) is not str:
+                        st = site.loc[sample, site.columns.tolist()[0]][0]
+                    else:
+                        st = site.loc[sample, site.columns.tolist()[0]]
+
+                metadata = {'sample': sample, 'lab': lab, 'coldate': dt, 'site': st }
                 metadata_list.append(metadata)
             except KeyError:
-                sys.stderr.write(f"Error: Metadata for sample {sample} from {path} couldn't be found in the metadata file")        
+                sys.stderr.write(f"Error: Metadata for sample {sample} from {path} couldn't be found in the metadata file\n")        
 
     if meta_file is not None:
         summarized_output.update({'metadata': metadata_list})
@@ -297,7 +324,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Runs minimap2.py on new data"
     )
-    parser.add_argument('--db', type=str, default="data/gromstole.db",
+    parser.add_argument('--db', type=str, default="data/freyja.db",
                         help="Path to the database")
     parser.add_argument('--indir', type=str, default="/home/wastewater/uploads",
                         help="Path to the uploads directory")
@@ -362,6 +389,10 @@ if __name__ == '__main__':
         cursor, connection = open_connection(args.db, callback=cb.callback)
         new_files, runs = get_files(cursor, files, args.ignore_list, args.check, callback=cb.callback)
 
+        if len(new_files) == 0:
+            cb.callback("No new data files")
+            exit(0)
+
         # Write the paths to a temporary file
         paths = tempfile.NamedTemporaryFile('w', delete=False)
         for file_path in new_files:
@@ -405,7 +436,10 @@ if __name__ == '__main__':
                 basepath, sample = os.path.split(processed_path)
                 lab, run = basepath.split(os.path.sep)[-2:]
                 sname = sample.split('_')[0]
-                unique_samples.add(os.path.join(args.outdir, lab, run, sname))
+                if os.path.basename(args.outdir) == lab:
+                    unique_samples.add(os.path.join(args.outdir, run, sname))
+                else:
+                    unique_samples.add(os.path.join(args.outdir, lab, run, sname))
                 runs.add(basepath)
                 
         # Generate the summary freyja csv files for each sample
@@ -442,8 +476,12 @@ if __name__ == '__main__':
             summarize_run_data(args.barcodes, args.update_barcodes, args.freyja_update, run, args.indir, args.outdir, callback=cb.callback)
 
 
-        os.unlink(paths.name)
-        os.unlink(processed_files.name)
+        try:
+            os.remove(paths.name)
+            os.remove(processed_files.name)
+        except FileNotFoundError:
+            pass
+
 
         connection.commit()
         connection.close()  

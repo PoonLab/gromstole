@@ -28,7 +28,7 @@ def send_error_notification(message):
         exit(-1)
 
     msg = MIMEMultipart("related")
-    msg['Subject'] = "ATTENTION: Error running gromstole pipeline"
+    msg['Subject'] = "ATTENTION: Error running freyja pipeline"
     msg['From'] = "Gromstole Notification <{}>".format(config["EMAIL_ADDRESS"])
     msg['To'] = config["SEND_TO"]
 
@@ -265,6 +265,7 @@ if __name__ == '__main__':
 
         # Check to see if the results directory has freyja run data
         if len(fnmatch.filter(os.listdir(result_dir), '*.*')) > 0:
+            cb.callback("Files already exist in the folder")
             continue
 
         tf1, tf2 = cutadapt(fq1=r1, fq2=r2, ncores=2, path=args.cutadapt, sendemail=args.sendemail)

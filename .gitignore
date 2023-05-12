@@ -14,6 +14,7 @@ results/*
 data/tile-coords.csv
 *bin
 *.db
+*.log
 
 # Fasta
 *\.fa

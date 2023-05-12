@@ -54,15 +54,20 @@ class LinParser:
         results = []
         other_freq = 0.
         for lname, est in zip(lineages, estimates):
-            freq = float(est)
-            if freq < threshold:
-                other_freq += freq
-                continue
-            # look up closest LOI
-            fullname = self.expand_lineage(lname)
-            match = self.match_lineage(fullname)
-            results.append({'sample': sample, 'name': lname, 'LOI': match,
-                            'frequency': float(est)})
+            try:
+                freq = float(est)
+                if freq < threshold:
+                    other_freq += freq
+                    continue
+                # look up closest LOI
+                fullname = self.expand_lineage(lname)
+                match = self.match_lineage(fullname)
+                results.append({'sample': sample, 'name': lname, 'LOI': match,
+                                'frequency': float(est)})
+            except ValueError:
+                # Empty file
+                results.append({'sample': sample, 'name': 'NA', 'LOI': 'NA',
+                                'frequency': -1000})
 
         # report sum of lineages below threshold
         results.append({'sample': sample, 'name': 'minor', 'frequency': other_freq, 'LOI': 'minor'})
