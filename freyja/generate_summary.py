@@ -83,6 +83,12 @@ class LinParser:
         if fullname in self.loi:
             return self.loi[fullname]
 
+        if fullname.startswith('XBB.1.9.2.5.1'):
+            return 'Other EG.5.1'
+        
+        if fullname.startswith('XBB.1.9.2.5'):
+            return 'Other EG.5'
+
         while '.' in fullname:
             items = fullname.split('.')
             fullname = '.'.join(items[:-1])

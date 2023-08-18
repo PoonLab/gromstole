@@ -77,6 +77,7 @@ def get_runs(paths, ignore_list, runs_list, callback=None):
     """
     runs = set()
     ignored = set()
+    reprocess = []
     for file in paths:
         path, filename = os.path.split(file)
         if contains_run(path, ignore_list):
@@ -84,11 +85,12 @@ def get_runs(paths, ignore_list, runs_list, callback=None):
             continue
         if len(runs_list) == 0 or contains_run(path, runs_list):
             runs.add(path)
+            reprocess.append(file)
 
     for path in ignored:
         callback("Ignoring '{}'".format(path))
 
-    return runs
+    return reprocess, runs
 
 
 def get_files(curr, paths, ignore_list, check_processed, callback=None):
@@ -263,7 +265,7 @@ def process_files(curr, indir, outdir, paths, binpath="minimap2", cutabin="cutad
     if len(ignore) > 0 and callback:
         callback("Ignoring {} files without an R2 pair".format(len(ignore)))
         for f in ignore:
-            callback("\t {}".format(f), level="DEBUG")
+            callback("\t {}".format(f), level="ERROR")
 
 
 def run_scripts(runs, indir, outdir, replace, callback=None):
@@ -373,9 +375,9 @@ def parse_args():
     )
     parser.add_argument('--db', type=str, default="data/gromstole.db",
                         help="Path to the database")
-    parser.add_argument('--indir', type=str, default="/data/wastewater/uploads",
+    parser.add_argument('--indir', type=str, default="/home/wastewater/uploads",
                         help="Path to the uploads directory")
-    parser.add_argument('--outdir', type=str, default="/data/wastewater/results",
+    parser.add_argument('--outdir', type=str, default="/home/wastewater/results/gromstole",
                         help="Path to the results directory")
     parser.add_argument('-i', '--ignore-list', nargs="*", default=[],
                         help="Directories to ignore or keywords to ignore in the filename")
@@ -412,7 +414,11 @@ if __name__ == '__main__':
     files = glob.glob("{}/**/*_R1_*.fastq.gz".format(args.indir), recursive=True)
 
     if args.rerun:
-        runs = get_runs(files, args.ignore_list, args.runs, callback=cb.callback)
+        cursor, connection = open_connection(args.db, callback=cb.callback)
+        new_files,runs = get_runs(files, args.ignore_list, args.runs, callback=cb.callback)
+        process_files(cursor, args.indir, args.outdir, new_files, binpath=args.binpath, cutabin=args.cutabin,
+                callback=cb.callback)
+        connection.close()  
     else:
         cursor, connection = open_connection(args.db, callback=cb.callback)
         new_files, runs = get_files(cursor, files, args.ignore_list, args.check, callback=cb.callback)

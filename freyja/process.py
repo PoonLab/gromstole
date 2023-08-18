@@ -319,6 +319,12 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
     os.rename(freyja_json, rename_file(freyja_json))
 
 
+def rename_version(filepath):
+    filename = os.path.basename(filepath)
+    filename_toks = filename.split('.')
+    return filepath.replace(filename, '{}.{}.{}'.format('.'.join(filename_toks[:-1]), "V1", filename_toks[-1]))
+
+
 def parse_args():
     """Command-line interface"""
     parser = argparse.ArgumentParser(
@@ -355,6 +361,8 @@ def parse_args():
                         help="<input> PANGO aliases")
     parser.add_argument('--barcodes', type=str, default="data/usher_barcodes.csv",
                         help="<input> USHER Barcodes")
+    parser.add_argument('--updateloi', dest='updateloi', action='store_true',
+                        help="<option> Generate the csv and JSON files again")
 
     parser.add_argument('--sendemail', dest='sendemail', action="store_true",
                         help="<option> send email notification when there is an error")                       
@@ -368,7 +376,7 @@ def parse_args():
                         help="Process result files again (generate JSON, csv and barplots again)")
     parser.add_argument('--runs', nargs="*", default=[],
                         help="Runs to process again")
-    parser.set_defaults(check=False, replace=True, rerun=False, sendemail=False, update_barcodes=False)
+    parser.set_defaults(check=False, replace=True, rerun=False, sendemail=False, update_barcodes=False, updateloi=False)
 
     return parser.parse_args()
 
@@ -383,7 +391,78 @@ if __name__ == '__main__':
 
     files = glob.glob("{}/**/*_R1_*.fastq.gz".format(args.indir), recursive=True)
 
-    if args.rerun:
+    if args.updateloi:
+        unique_samples = set()
+        runs = set()
+        for f in files:
+            if contains_run(f, args.ignore_list):
+                continue
+            basepath, sample = os.path.split(f)
+            # lab, run = basepath.split(os.path.sep)[-2:]
+            if "western" in basepath:
+                lab = "western"
+            elif "guelph" in basepath:
+                lab = "guelph"
+            else:
+                lab = "waterloo"
+            run = os.path.split(basepath)[1]
+            sname = sample.split('_')[0]
+            if os.path.basename(args.outdir) == lab:
+                unique_samples.add(os.path.join(args.outdir, run, sname))
+            else:
+                unique_samples.add(os.path.join(args.outdir, lab, run, sname))
+            runs.add(basepath)
+        
+        # Generate the summary freyja csv files for each sample
+        cb.callback("Generating Freyja CSV Files")
+        parser = LinParser(args.alias, args.loi)
+        for processed_path in unique_samples:
+            files = glob.glob(os.path.join(processed_path, "lin.*.tsv"))
+
+            # Rename previous csv file
+            freyjacsv = glob.glob(os.path.join(processed_path, "*.freyja.*.csv"))
+            if len(freyjacsv) > 0:
+                for f in freyjacsv:
+                    # filename = os.path.basename(f)
+                    os.rename(f, rename_version(f))
+
+            # prepare output file
+            lab, run, sample = processed_path.split(os.path.sep)[-3:]
+            # print(processed_path)
+            freyja_csv = '{}/{}-{}.freyja.csv'.format(processed_path, lab, sample)
+            try:
+                with open(freyja_csv, 'w') as outfile:
+                    writer = DictWriter(outfile,
+                                            fieldnames=['sample', 'name', 'LOI', 'frequency'])
+                    writer.writeheader()
+                    if not files:
+                        sys.stderr.write(f"ERROR: Directory {processed_path} does not contain any files matching lin.*.tsv\n")
+                        # Creating a summary file giving the sample a frequency of -1000 to indicate that the coverage of the sample needs to be reviewed
+                        results = {'sample': sample, 'name': 'NA', 'LOI': 'NA',
+                                'frequency': -1000}
+                        writer.writerow(results)
+                    else:
+                        for infile in files:
+                            results = parser.parse_lin(infile, threshold=args.threshold)
+                            for row in results:
+                                writer.writerow(row)
+
+                # Rename file with sha1sum hash
+                os.rename(freyja_csv, rename_file(freyja_csv))
+            except FileNotFoundError:
+                print('{} not found!!'.format(freyja_csv))
+
+        # Generate the json file for each run
+        cb.callback("Generating Freyja JSON Files")
+        for run in runs:
+            # Rename previous JSON file
+            freyjajson = glob.glob(os.path.join(run, "*.*.json"))
+            if len(freyjajson) > 0:
+                for f in freyjajson:
+                    # filename = os.path.basename(f)
+                    os.rename(f, rename_version(f))
+            summarize_run_data(args.barcodes, args.update_barcodes, args.freyja_update, run, args.indir, args.outdir, callback=cb.callback)
+    elif args.rerun:
         runs = get_runs(files, args.ignore_list, args.runs, callback=cb.callback)
     else:
         cursor, connection = open_connection(args.db, callback=cb.callback)
@@ -423,7 +502,6 @@ if __name__ == '__main__':
         except subprocess.CalledProcessError:
             sys.stderr.write(f"Error running {' '.join(cmd)}\n")
 
-        # processed = []
         unique_samples = set()
         runs = set()
 
