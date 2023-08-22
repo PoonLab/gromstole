@@ -278,7 +278,7 @@ def parse_mm2(mm2, locator, paired=True, limit=None, maxpos=29903):
     return res, total_coverage
 
 
-def assign_amplicon(coverage, coords):
+def assign_amplicon(coverage, coords): # pragma: no cover
     """ Based on mapped coordinates, determine which amplicon the read mapped to """
     pass
 
@@ -310,7 +310,9 @@ def get_frequencies(res, coverage):
                 counts[pos].update({key: {'label': label, 'count': 0}})
             try:
                 counts[pos][key]['count'] += 1/denom
-            except ZeroDivisionError:
+
+            # ZeroDivisionError is never getting raised
+            except ZeroDivisionError: # pragma: no cover
                 print(pos, row, coverage[pos])
                 raise
     return counts
@@ -377,13 +379,13 @@ def write_coverage(coverage, covfile):
             handle.write('{},{}\n'.format(pos, count))
 
 
-def load_coords(csvfile):
+def load_coords(csvfile): # pragma: no cover
     rows = csv.DictReader(csvfile)
     for row in rows:
         pass
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     # command-line interface for a single file / pair of files
     parser = argparse.ArgumentParser("Wrapper script for minimap2")
     parser.add_argument('fq1', type=str, help="<input> path to FASTQ, or R1 if paired file.  "

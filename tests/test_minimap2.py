@@ -71,11 +71,44 @@ class TestProcess(unittest.TestCase):
     def setUp(self):
         self.expected_counts = {26272: {'~26273T': {'label': 'aa:E:G10V', 'count': 0.5}},
                                 25923: {'~25924T': {'label': 'aa:orf3a:P178S', 'count': 0.5}}}
+        self.fq1 = "data/unit-tests/minimap2_mutations-coverage_1.fastq"
+        self.fq2 = "data/unit-tests/minimap2_mutations-coverage_2.fastq"
+        self.ref = "data/NC_045512.fa"
+
+    def test_check(self):
+        # Missing right bound
+        miss = [(0, 100)]
+        result = check_miss(miss)
+        
+        self.assertEqual(result, [(0, 100), (29903, 29903)])
+
+        # Missing left bound
+        miss = [(250, 29903)]
+        result = check_miss(miss)
+
+        self.assertEqual(result, [(0, 0), (250, 29903)])
+
+        # Unexpected case
+        miss = [(100, 200)]
+        with self.assertRaises(SystemExit):
+            check_miss(miss)
+
+    def test_parse_mm2(self):
+
+        mm2_data = minimap2(self.fq1, self.fq2, ref=self.ref, nthread=3, path="minimap2")
+        locator = SC2Locator(ref_file=self.ref)
+
+        expected_result = 8
+        expected_coverage = 29903
+
+        result, coverage = parse_mm2(mm2_data, locator, paired=False)
+
+        self.assertEqual(len(result), expected_result)
+        self.assertEqual(len(coverage), expected_coverage)
 
     def test_process(self):
-        counts, coverage = process(fq1="data/unit-tests/minimap2_mutations-coverage_1.fastq",
-                         fq2="data/unit-tests/minimap2_mutations-coverage_2.fastq",
-                         ref="data/NC_045512.fa", nthread=3, binpath='minimap2', limit=None)
+        counts, coverage = process(fq1=self.fq1, fq2=self.fq2, ref=self.ref,
+                                   nthread=3, binpath='minimap2', limit=None)
         self.assertEqual(self.expected_counts, counts)
 
     def test_get_frequencies(self):
