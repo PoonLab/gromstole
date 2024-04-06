@@ -411,6 +411,9 @@ if __name__ == '__main__':
     except:
         cb.callback("Could not update submodules", level='ERROR')
 
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
+    
     files = glob.glob("{}/**/*_R1_*.fastq.gz".format(args.indir), recursive=True)
 
     if args.rerun:
