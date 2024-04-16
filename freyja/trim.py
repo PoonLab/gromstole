@@ -7,6 +7,7 @@ import fnmatch
 from progress_utils import Callback
 
 import smtplib
+import freyja as freyja_module
 from dotenv import dotenv_values
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -110,7 +111,7 @@ def minimap2(fq1, fq2, ref, path='minimap2', nthread=1, sendemail=False):
     return tempbamsort.name 
 
 
-def freyja(bamsort, ref, sample, outpath, email=None, path='freyja', sendemail=False):
+def freyja(bamsort, ref, sample, outpath, email=None, path='freyja', sendemail=False, callback=None):
     """
     Wrapper function for andersen-lab/Freyja
 
@@ -153,10 +154,13 @@ def freyja(bamsort, ref, sample, outpath, email=None, path='freyja', sendemail=F
              '--output', '{}/lin.{}.tsv'.format(outpath, sample)]
 
     p = subprocess.Popen(demix, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    _, error = p.communicate()
+    stdoutput, error = p.communicate()
 
     if p.returncode != 0: 
         if b'cvxpy.error.SolverError' in error:
+            sys.stderr.write(f"cvxpy.error.SolverError when running Freyja demix. Check coverage - ")
+            sys.stderr.write(f"{' '.join(demix)}\n")
+        elif b'demix: Solver error' in stdoutput:
             sys.stderr.write(f"cvxpy.error.SolverError when running Freyja demix. Check coverage - ")
             sys.stderr.write(f"{' '.join(demix)}\n")
         else:
@@ -200,7 +204,7 @@ if __name__ == '__main__':
                         help="Path to the results directory")
     parser.add_argument('--indir', type=str, default="/home/wastewater/uploads",
                         help="Path to the uploads directory")
-    parser.add_argument('--ref', type=str, default="data/NC_045512.fa",
+    parser.add_argument('--ref', type=str, default=os.path.join(freyja_module.__path__[0], "data", "NC_045512_Hu-1.fasta"),
                         help="<input> path to target FASTA (reference)")
     parser.add_argument('--sendemail', dest='sendemail', action="store_true",
                         help="<option> send email notification when there is an error") 
@@ -272,7 +276,7 @@ if __name__ == '__main__':
         bamsort = minimap2(fq1=tf1, fq2=tf2, ref=args.ref, nthread=args.threads,
                             path=args.minimap2, sendemail=args.sendemail)
         res = freyja(bamsort=bamsort, ref=args.ref, sample=prefix, outpath=result_dir,
-                    path=args.freyja, sendemail=args.sendemail)
+                    path=args.freyja, sendemail=args.sendemail, callback=cb.callback)
         
         # cvxpy error
         if res:

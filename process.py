@@ -142,7 +142,7 @@ def get_files(curr, paths, ignore_list, check_processed, callback=None):
     if len(ignore) > 0 and callback:
         callback("Ignoring {} files".format(len(ignore)))
         for f in ignore:
-            callback("\t {}".format(f), level="DEBUG")
+            callback("\t {}".format(f), level="ERROR")
 
     return unentered, runs
 

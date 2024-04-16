@@ -4,6 +4,8 @@ from csv import DictWriter, DictReader
 import sqlite3
 import argparse
 import os
+import shutil
+import re
 import glob
 import subprocess
 import sys
@@ -11,6 +13,7 @@ import tempfile
 import requests
 import pandas as pd
 import json
+import freyja
 from math import isnan
 
 from trim import send_error_notification, rename_file
@@ -206,11 +209,15 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
     results_dir = path.replace(indir, outdir)
 
     # Assumes all samples have an individual folder with its freyja output files
-    samples = [os.path.split(x[0])[1] for x in os.walk(results_dir) if x[0] is not results_dir]
+    samples = list({os.path.split(x[0])[1] for x in os.walk(results_dir) if x[0] is not results_dir})
 
     for sample in samples:
         if callback:
             callback(sample)
+
+        if sample == 'previous_analysis':
+            callback("Ignoring previous_analysis...")
+            continue
 
         if sample == "Undetermined":
             callback("Ignoring Undetermined...")
@@ -283,7 +290,7 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
                 date = meta_file.filter(regex="collection\sdate")
                 # Check if date is NaN
                 try:
-                    if isnan(date.loc[sample, date.columns.tolist()[0]]):
+                    if len(date.columns.tolist()) == 0 or isnan(date.loc[sample, date.columns.tolist()[0]]):
                         dt = ''
                 except TypeError:
                     if type(date.loc[sample, date.columns.tolist()[0]]) is not str:
@@ -292,7 +299,7 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
                         dt = date.loc[sample, date.columns.tolist()[0]]
                 
                 try:
-                    if isnan(site.loc[sample, site.columns.tolist()[0]]):
+                    if len(site.columns.tolist()) == 0 or isnan(site.loc[sample, site.columns.tolist()[0]]):
                         st = ''
                 except TypeError:
                     if type(site.loc[sample, site.columns.tolist()[0]]) is not str:
@@ -310,6 +317,24 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
 
     summarized_output.update({'run.dir': [run], 'freyja.last.updated': [freyja_update.strftime('%Y-%m-%d')]})
 
+    # Include freyja version in the JSON
+    try:
+        result = subprocess.run(['freyja', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        sys.stderr.write(f"Error: {e}\n")
+        output = ""
+
+    version_pattern = r'(\d+\.\d+\.\d+)'
+    match = re.search(version_pattern, output)
+
+    if match:
+        version_number = match.group(1)
+    else:
+        version_number = ""
+
+    summarized_output.update({'run.dir': [run], 'freyja.version': version_number, 'freyja.last.updated': [freyja_update.strftime('%Y-%m-%d')]})    
+
     freyja_json = os.path.join(results_dir, "{}-{}.json".format(lab, run))
     with open(freyja_json, 'w') as outfile:
         json_output = json.dumps(summarized_output, indent = 2)
@@ -319,10 +344,24 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
     os.rename(freyja_json, rename_file(freyja_json))
 
 
-def rename_version(filepath):
-    filename = os.path.basename(filepath)
-    filename_toks = filename.split('.')
-    return filepath.replace(filename, '{}.{}.{}'.format('.'.join(filename_toks[:-1]), "V1", filename_toks[-1]))
+def rename_version(filepath, file_version):
+    file_name = os.path.basename(filepath)
+
+    if file_version == None:
+        new_file_name = re.sub(r'(\.\w+)$', r'.V1\1', file_name)
+    else:
+        file_name_version = os.path.basename(file_version)
+        pattern = r'V(\d+)'
+        match = re.search(pattern, file_name_version)
+
+        if match:
+            current_version = int(match.group(1))
+            next_version = current_version + 1
+
+            # Replace the version number in the file name with the next version
+            new_file_name = re.sub(pattern, f"V{next_version}", file_name_version)
+
+    return new_file_name
 
 
 def parse_args():
@@ -359,7 +398,7 @@ def parse_args():
                         help="input, path to text file listing lineages of interest")
     parser.add_argument('--alias', type=str, default="data/alias_key.json",
                         help="<input> PANGO aliases")
-    parser.add_argument('--barcodes', type=str, default="data/usher_barcodes.csv",
+    parser.add_argument('--barcodes', type=str, default=os.path.join(freyja.__path__[0], "data", "usher_barcodes.csv"),
                         help="<input> USHER Barcodes")
     parser.add_argument('--updateloi', dest='updateloi', action='store_true',
                         help="<option> Generate the csv and JSON files again")
@@ -385,7 +424,6 @@ if __name__ == '__main__':
     cb = Callback()
     args = parse_args()
     cb.callback("Starting script")
-
     args.indir = os.path.normpath(args.indir)
     args.outdir = os.path.normpath(args.outdir)
 
@@ -417,25 +455,31 @@ if __name__ == '__main__':
         cb.callback("Generating Freyja CSV Files")
         parser = LinParser(args.alias, args.loi)
         for processed_path in unique_samples:
-            files = glob.glob(os.path.join(processed_path, "lin.*.tsv"))
+            lin_files = glob.glob(os.path.join(processed_path, "lin.*.tsv"))
+            latest_version = None
+
+            run_dir, sample = os.path.split(processed_path)
+            os.makedirs(os.path.join(run_dir, 'previous_analysis', sample), exist_ok=True)
 
             # Rename previous csv file
             freyjacsv = glob.glob(os.path.join(processed_path, "*.freyja.*.csv"))
+            prev_csv = glob.glob(os.path.join(run_dir, 'previous_analysis', sample, "*.freyja.*.csv"))
             if len(freyjacsv) > 0:
-                for f in freyjacsv:
-                    # filename = os.path.basename(f)
-                    os.rename(f, rename_version(f))
+                latest_csv_file = freyjacsv[0]
+                if len(prev_csv) > 0:
+                    prev_csv.sort(key=os.path.getmtime, reverse=True)
+                    latest_version = prev_csv[0]
+                shutil.move(latest_csv_file, os.path.join(run_dir, 'previous_analysis', sample, rename_version(latest_csv_file, latest_version)))
 
             # prepare output file
             lab, run, sample = processed_path.split(os.path.sep)[-3:]
-            # print(processed_path)
             freyja_csv = '{}/{}-{}.freyja.csv'.format(processed_path, lab, sample)
             try:
                 with open(freyja_csv, 'w') as outfile:
                     writer = DictWriter(outfile,
                                             fieldnames=['sample', 'name', 'LOI', 'frequency'])
                     writer.writeheader()
-                    if not files:
+                    if not lin_files:
                         sys.stderr.write(f"ERROR: Directory {processed_path} does not contain any files matching lin.*.tsv\n")
                         # Creating a summary file giving the sample a frequency of -1000 to indicate that the coverage of the sample needs to be reviewed
                         results = {'sample': sample, 'name': 'NA', 'LOI': 'NA',
@@ -455,12 +499,19 @@ if __name__ == '__main__':
         # Generate the json file for each run
         cb.callback("Generating Freyja JSON Files")
         for run in runs:
+            latest_version = None
+
             # Rename previous JSON file
-            freyjajson = glob.glob(os.path.join(run, "*.*.json"))
+            outrun = run.replace(args.indir, args.outdir)
+            freyjajson = glob.glob(os.path.join(outrun, "*.*.json"))
+            prev_json = glob.glob(os.path.join(outrun, "previous_analysis", "*.json"))
             if len(freyjajson) > 0:
-                for f in freyjajson:
-                    # filename = os.path.basename(f)
-                    os.rename(f, rename_version(f))
+                if len(prev_json) > 0:
+                    prev_json.sort(key=os.path.getmtime, reverse=True)
+                    latest_version = prev_json[0]
+                latest_json_file = freyjajson[0]
+                shutil.move(latest_json_file, os.path.join(outrun, "previous_analysis", rename_version(latest_json_file, latest_version)))
+
             summarize_run_data(args.barcodes, args.update_barcodes, args.freyja_update, run, args.indir, args.outdir, callback=cb.callback)
     elif args.rerun:
         runs = get_runs(files, args.ignore_list, args.runs, callback=cb.callback)
@@ -564,7 +615,7 @@ if __name__ == '__main__':
         connection.commit()
         connection.close()  
     
-    if not args.rerun and len(new_files) == 0:
+    if not args.updateloi and not args.rerun and len(new_files) == 0:
         cb.callback("No new data files")
     else:
         cb.callback("All Done!")     
