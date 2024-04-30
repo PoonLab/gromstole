@@ -72,6 +72,9 @@ def insert_files(cur, files, callback=None):
         with open(path, 'r') as f:
             mapped = csv.DictReader(f)
             for line in mapped:
+                if float(line['coverage']) * float(line['frequency']) == 1:
+                    continue
+                
                 cur.execute("INSERT INTO RESULTS (LAB, RUN, SAMPLE, POSITION, LABEL, FREQUENCY, COVERAGE, PATH)"
                             " VALUES(%s, %s, %s, %s, %s, %s, %s, %s)"
                             " ON CONFLICT DO NOTHING",
