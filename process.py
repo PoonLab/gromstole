@@ -283,7 +283,7 @@ def run_scripts(runs, indir, outdir, replace, callback=None):
     if not os.path.exists('results'):
         os.makedirs(os.path.join(os.getcwd(), "results"), exist_ok=True)
 
-    lineages = ['BA.1', 'BA.2', 'B.1.617.2', 'BA.4', 'BA.5', 'BA.2.75', 'BE.1', 'BQ.1.1']
+    lineages = ['BA.1', 'BA.2', 'B.1.617.2', 'BA.4', 'BA.5', 'BA.2.75', 'BE.1', 'BQ.1.1', 'BA.2.86']
     suffixes = ['json', 'barplot.pdf', 'csv']
     for run in runs:
         result_dir = outdir + run.split(indir)[1]
