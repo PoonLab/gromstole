@@ -180,10 +180,10 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
         callback(path)
 
     if update_barcodes or not os.path.isfile(usher_barcodes):
-        callback("Downloading usher barcodes...")
-        url = 'https://raw.githubusercontent.com/andersen-lab/Freyja/main/freyja/data/usher_barcodes.csv'
+        callback("Downloading lineage mutations...")
+        url = 'https://raw.githubusercontent.com/andersen-lab/Freyja/main/freyja/data/lineage_mutations.json'
         request = requests.get(url, allow_redirects=True)
-        usher_barcodes = 'data/usher_barcodes.csv'
+        usher_barcodes = 'data/lineage_mutations.json'
         with open(usher_barcodes, 'wb') as file:
             file.write(request.content)    
         
@@ -203,8 +203,8 @@ def summarize_run_data(usher_barcodes, update_barcodes, freyja_update, path, ind
 
     
 	# read barcode data, for each VOC extract columns that have mutaion
-    barcode = pd.read_csv(usher_barcodes, index_col = 0)
-    muts = barcode.apply(lambda x: x.index[x == 1].tolist(), axis=1)
+    with open(usher_barcodes, 'r') as file:
+        muts = json.load(file)
     
     results_dir = path.replace(indir, outdir)
 
@@ -398,8 +398,8 @@ def parse_args():
                         help="input, path to text file listing lineages of interest")
     parser.add_argument('--alias', type=str, default="data/alias_key.json",
                         help="<input> PANGO aliases")
-    parser.add_argument('--barcodes', type=str, default=os.path.join(freyja.__path__[0], "data", "usher_barcodes.csv"),
-                        help="<input> USHER Barcodes")
+    parser.add_argument('--barcodes', type=str, default=os.path.join(freyja.__path__[0], "data", "lineage_mutations.json"),
+                        help="<input> Lineage Mutations JSON file")
     parser.add_argument('--updateloi', dest='updateloi', action='store_true',
                         help="<option> Generate the csv and JSON files again")
 
