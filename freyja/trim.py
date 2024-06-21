@@ -163,6 +163,9 @@ def freyja(bamsort, ref, sample, outpath, email=None, path='freyja', sendemail=F
         elif b'demix: Solver error' in stdoutput:
             sys.stderr.write(f"cvxpy.error.SolverError when running Freyja demix. Check coverage - ")
             sys.stderr.write(f"{' '.join(demix)}\n")
+        elif b'pandas.errors.EmptyDataError' in error:
+            sys.stderr.write(f"Check uploaded file, Empty results")
+            sys.stderr.write(f"{' '.join(demix)}\n")
         else:
             if sendemail:
                 send_error_notification(message="Error running {}".format(' '.join(demix)))
