@@ -151,7 +151,7 @@ def freyja(bamsort, ref, sample, outpath, email=None, path='freyja', sendemail=F
 
     demix = [path, 'demix', '{}/var.{}.tsv'.format(outpath, sample),
              '{}/depth.{}.csv'.format(outpath, sample),
-             '--output', '{}/lin.{}.tsv'.format(outpath, sample)]
+             '--output', '{}/lin.{}.tsv'.format(outpath, sample), '--solver', 'ECOS']
 
     p = subprocess.Popen(demix, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdoutput, error = p.communicate()
