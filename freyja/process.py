@@ -20,6 +20,12 @@ from trim import send_error_notification, rename_file
 from generate_summary import LinParser
 
 
+class SpecialCharacterException(Exception):
+    def __init__(self, message="Special character found in the string"):
+        self.message = message
+        super().__init__(self.message)
+
+
 def open_connection(database, callback=None):
     """
     Open connection to the database. Creates db file if it doesn't exist
@@ -69,7 +75,16 @@ def insert_record(curr, filepath):
                  [filepath, formatted_date, path, checksum])
 
 
-def get_runs(paths, ignore_list, runs_list, callback=None):
+def has_special_characters(s):
+    pattern = re.compile('[^A-Za-z0-9/]')
+    
+    if pattern.search(s):
+        return True
+    else:
+        return False
+    
+
+def get_runs(paths, ignore_list, runs_list, sendmail=False, callback=None):
     """
     Gets the list of runs to process
 
@@ -87,6 +102,10 @@ def get_runs(paths, ignore_list, runs_list, callback=None):
             ignored.add(path)
             continue
         if len(runs_list) == 0 or contains_run(path, runs_list):
+            if has_special_characters(path):
+                if sendmail:
+                    send_error_notification(message="Special character found in the string: {}".format(path))
+                raise SpecialCharacterException(f"Special character found in the string: {path}")
             runs.add(path)
 
     for path in ignored:
@@ -95,7 +114,7 @@ def get_runs(paths, ignore_list, runs_list, callback=None):
     return runs
 
 
-def get_files(curr, paths, ignore_list, check_processed, callback=None):
+def get_files(curr, paths, ignore_list, check_processed, sendmail=False, callback=None):
     """
     Detects if there are any new data files that have been uploaded by comparing the list of files to those that
     are already in the database
@@ -120,6 +139,10 @@ def get_files(curr, paths, ignore_list, check_processed, callback=None):
         path, filename = os.path.split(file)
         if file not in results:
             unentered.append(file)
+            if has_special_characters(path):
+                if sendmail:
+                    send_error_notification(message="Special character found in the string: {}".format(path))  
+                raise SpecialCharacterException(f"Special character found in the string: {path}")
             runs.add(path)
         else:
             entered.append(file)
@@ -138,6 +161,10 @@ def get_files(curr, paths, ignore_list, check_processed, callback=None):
 
             if results[filename] != checksums[file] or results[r2_filename] != checksums[r2]:
                 unentered.append(file)
+                if has_special_characters(path):
+                    if sendmail:
+                        send_error_notification(message="Special character found in the string: {}".format(path))
+                    raise SpecialCharacterException(f"Special character found in the string: {path}")
                 runs.add(path)
                 cb.callback("Re-processing {} and its R2 pair from the database".format(file))
 
@@ -514,10 +541,10 @@ if __name__ == '__main__':
 
             summarize_run_data(args.barcodes, args.update_barcodes, args.freyja_update, run, args.indir, args.outdir, callback=cb.callback)
     elif args.rerun:
-        runs = get_runs(files, args.ignore_list, args.runs, callback=cb.callback)
+        runs = get_runs(files, args.ignore_list, args.runs, sendmail=args.sendmail, callback=cb.callback)
     else:
         cursor, connection = open_connection(args.db, callback=cb.callback)
-        new_files, runs = get_files(cursor, files, args.ignore_list, args.check, callback=cb.callback)
+        new_files, runs = get_files(cursor, files, args.ignore_list, args.check, sendmail=args.sendmail, callback=cb.callback)
 
         if len(new_files) == 0:
             cb.callback("No new data files")

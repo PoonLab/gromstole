@@ -16,6 +16,12 @@ from email.mime.multipart import MIMEMultipart
 
 error_msgs = []
 
+class SpecialCharacterException(Exception):
+    def __init__(self, message="Special character found in the string"):
+        self.message = message
+        super().__init__(self.message)
+
+
 def open_connection(database, callback=None):
     """
     Open connection to the database. Creates db file if it doesn't exist
@@ -65,6 +71,15 @@ def insert_record(curr, filepath):
                  [filepath, formatted_date, path, checksum])
 
 
+def has_special_characters(s):
+    pattern = re.compile('[^A-Za-z0-9/]')
+    
+    if pattern.search(s):
+        return True
+    else:
+        return False
+    
+
 def get_runs(paths, ignore_list, runs_list, callback=None):
     """
     Gets the list of runs to process
@@ -84,6 +99,8 @@ def get_runs(paths, ignore_list, runs_list, callback=None):
             ignored.add(path)
             continue
         if len(runs_list) == 0 or contains_run(path, runs_list):
+            if has_special_characters(path):
+                raise SpecialCharacterException(f"Special character found in the string: {path}")
             runs.add(path)
             reprocess.append(file)
 
@@ -118,6 +135,8 @@ def get_files(curr, paths, ignore_list, check_processed, callback=None):
         path, filename = os.path.split(file)
         if file not in results:
             unentered.append(file)
+            if has_special_characters(path):
+                raise SpecialCharacterException(f"Special character found in the string: {path}")
             runs.add(path)
         else:
             entered.append(file)
@@ -136,6 +155,8 @@ def get_files(curr, paths, ignore_list, check_processed, callback=None):
 
             if results[filename] != checksums[file] or results[r2_filename] != checksums[r2]:
                 unentered.append(file)
+                if has_special_characters(path):
+                    raise SpecialCharacterException(f"Special character found in the string: {path}")
                 runs.add(path)
                 cb.callback("Re-processing {} and its R2 pair from the database".format(file))
 
