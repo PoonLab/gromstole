@@ -19,15 +19,19 @@ fieldnames = [
     'InterOp file checksum', 'Note'
 ]
 
+labs = ['western', 'waterloo', 'guelph']
+
 # gather all metadata CSV files and extract sample collection dates
-stdout = subprocess.check_output(['find', '/data/wastewater/uploads/', '-name', 'metadata.csv'])
+stdout = subprocess.check_output(['find', '/home/wastewater/uploads/', '-name', 'metadata.csv'])
 paths = stdout.split()
 metadata = {}
 for path in paths:
     dirname = os.path.dirname(path).decode()
-    try:
-        _, _, _, _, lab, runname = dirname.split('/')
-    except:
+    
+    toks = dirname.split('/')
+    lab, runname = toks[-2], toks[-1] 
+
+    if lab not in labs:
         continue  # mapped CSV in wrong location
 
     if lab not in metadata:
@@ -50,17 +54,20 @@ for path in paths:
 
         if lab == 'western':
             sample = sample.replace('_', '-')
-
-        metadata[lab][runname].update({sample: {
-            'coldate': row['sample collection date'],
-            'region': row['geolocation name (region)'],
-            'latitude': row['geolocation latitude'],
-            'longitude': row['geolocation longitude']
-        }})
+        try:
+            metadata[lab][runname].update({sample: {
+                'coldate': row['sample collection date'],
+                'region': row['geolocation name (region)'],
+                'latitude': row['geolocation latitude'],
+                'longitude': row['geolocation longitude']
+            }})
+        except:
+            print(path)
+            continue
 
 
 # gather all mapped.csv files and import contents, storing lab and run name
-stdout = subprocess.check_output(['find', '/data/wastewater/results/', '-name', '*.mapped.csv'])
+stdout = subprocess.check_output(['find', '/home/wastewater/results/', '-name', '*.mapped.csv'])
 paths = stdout.split()
 
 outfile = gzip.open("collate-mapped.csv.gz", mode='wt')
@@ -75,9 +82,10 @@ for path in paths:
 
     # retrieve lab and run name from path
     dirname = os.path.dirname(path).decode()
-    try:
-        _, _, _, _, lab, runname = dirname.split('/')
-    except:
+    
+    toks = dirname.split('/')
+    lab, runname = toks[-2], toks[-1]
+    if lab not in labs:
         continue  # mapped CSV in wrong location
 
     # troubleshoot failed matches

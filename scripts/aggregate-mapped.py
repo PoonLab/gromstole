@@ -5,7 +5,7 @@ from epiweeks import Week
 import json
 
 
-def parse_date(dt, formats=('%Y-%m-%d', '%d-%b-%y', '%m/%d/%Y', '%d/%m/%y')):
+def parse_date(dt, formats=('%y-%m-%d', '%d-%m-%y', '%d-%m-%Y', '%m-%d-%Y', '%Y-%m-%d', '%d-%b-%y', '%m/%d/%Y', '%d/%m/%y')):
     """ Try multiple date formats """
     if dt in ['UNK', '', ' ', 'null', None]:
         return None
